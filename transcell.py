@@ -35,6 +35,7 @@ class CELL(object):
         newCELL.nat=self.nat
         for i in range(newCELL.nat):
             newCELL.atpos[i]=np.array(Q*(np.mat(self.atpos[i]).T)).flatten()
+        #TODO: 去掉重复的原子 
 
     def printcell(self,fnam):
         fo=open(fnam,"w")
@@ -58,7 +59,7 @@ class CELL(object):
                     dig=dig+1.0
                 fo.write(" %f" % (dig))
             fo.write("\n")
-       #TODO: 去掉重复的原子 
+    
     def findfour():
         pass    
 
