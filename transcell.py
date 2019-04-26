@@ -16,7 +16,7 @@ class CELL(object):
                 self.cell[i,j]=float(ll[2+i].split()[j])
         self.ntyp=len(ll[5].split())
         self.typ_name=ll[5].split()
-        self.typ_num=np.zeros([self.ntyp])
+        self.typ_num=np.zeros([self.ntyp],dtype=np.int32)
         for i in range(self.ntyp):
             self.typ_num[i]=int(ll[6].split()[i])
         self.coordsystem=ll[7]
@@ -54,10 +54,10 @@ class CELL(object):
         fo.write("Direct\n")
         for i in range(self.nat):
             for j in range(3):
-                dig=np.modf(self.atpos[i][j])[0]
-                if dig < 0:
-                    dig=dig+1.0
-                fo.write(" %f" % (dig))
+                #dig=np.modf(self.atpos[i][j])[0]
+                #if dig < 0:
+                #    dig=dig+1.0
+                fo.write(" %f" % (np.modf(self.atpos[i][j])[0]))
             fo.write("\n")
     
     def findfour():
