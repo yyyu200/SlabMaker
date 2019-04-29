@@ -1,4 +1,10 @@
 # SlabMaker
+
+Consist of two part:
+1. TransCell
+Transformation between primitive cell and unit cell.
+
+2. SlabMaker
 Build slab models for crystal surfaces.
 
 Input unit cell and output slab models
