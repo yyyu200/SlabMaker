@@ -1,4 +1,6 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """ @author: yyyu200@163.com """
 
 import numpy as np
@@ -27,7 +29,7 @@ class CELL(object):
         self.typ_num=np.zeros([self.ntyp],dtype=np.int32)
         for i in range(self.ntyp):
             self.typ_num[i]=int(ll[6].split()[i])
-        self.coordsystem=ll[7]
+        self.coordsystem=ll[7] # Direct only, no 'Selective Dynamics' line expected
         self.nat=int(sum(self.typ_num))
         self.atpos=np.zeros([self.nat,3])
         for i in range(self.nat):
@@ -45,6 +47,21 @@ class CELL(object):
             newCELL.atpos[i]=np.array(Q*(np.mat(self.atpos[i]).T)).flatten()
         #TODO: 去掉重复的原子
         newCELL.tidy_up()
+
+    @staticmethod
+    def hex2rh(hexcell):
+        rhcell=copy.deepcopy(hexcell)
+        P=np.mat([[2/3.,-1/3.,-1/3.],[1/3.,1/3.,-2/3.],[1/3.,1/3.,1/3.]],dtype=np.float64)
+        Q=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
+      
+        rhcell.cell=(np.mat(hexcell.cell).T*P).T
+        rhcell.nat=hexcell.nat
+        for i in range(rhcell.nat):
+            rhcell.atpos[i]=np.array(Q*(np.mat(hexcell.atpos[i]).T)).flatten()
+        #TODO: 去掉重复的原子
+        rhcell.tidy_up()
+ 
+        return rhcell
 
     def tidy_up(self):
         for i in range(self.nat):
@@ -79,7 +96,7 @@ class CELL(object):
                 #dig=np.modf(self.atpos[i][j])[0]
                 #if dig < 0:
                 #    dig=dig+1.0
-                fo.write(" %f" % (np.modf(self.atpos[i][j])[0]))
+                fo.write(" %.12f" % (np.modf(self.atpos[i][j])[0]))
             fo.write("\n")
     
     def findfour():
@@ -94,9 +111,12 @@ class CELL(object):
 
 
 if __name__ == '__main__':
-    c1=CELL("mC.vasp")
-    prim=copy.deepcopy(c1)
-    c1.mbc2prim(prim)
-    
-    prim.printcell("prim.vasp")
+    #c1=CELL("mC.vasp")
+    #prim=copy.deepcopy(c1)
+    #c1.mbc2prim(prim)
+    #prim.printcell("prim.vasp")
+
+    hexcell=CELL("Al2O3.vasp")
+    rhcell=CELL.hex2rh(hexcell)
+    rhcell.printcell("rh.vasp")
 
