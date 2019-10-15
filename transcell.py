@@ -2,10 +2,18 @@
 """ @author: yyyu200@163.com """
 
 import numpy as np
+import copy
+
+def dist(a,b):
+    return np.linalg.norm(a-b)
 
 
 class CELL(object):
-    def __init__(self, fnam):
+    close_thr=1.0e-4
+    def __init__(self, fnam, fmt='POSCAR'):
+        '''
+        init from POSCAR
+        '''
         fi=open(fnam)
         ll=fi.readlines() 
         self.system=ll[0]
@@ -35,9 +43,23 @@ class CELL(object):
         newCELL.nat=self.nat
         for i in range(newCELL.nat):
             newCELL.atpos[i]=np.array(Q*(np.mat(self.atpos[i]).T)).flatten()
-        #TODO: 去掉重复的原子 
+        #TODO: 去掉重复的原子
+        newCELL.tidy_up()
+
+    def tidy_up(self):
+        for i in range(self.nat):
+            for j in range(3):
+                tmp=np.modf(self.atpos[i][j])[0] # the fractional part
+                if tmp < 0:
+                    self.atpos[i][j]+=1.0
+
+        self.atpos
+        self.nat=self.atpos.shape[0]
 
     def printcell(self,fnam):
+        '''
+        print to POSCAR
+        '''
         fo=open(fnam,"w")
         fo.write("system: "+' '.join(self.typ_name)+"\n")
         fo.write("1.0\n")
@@ -70,9 +92,11 @@ class CELL(object):
     def vasp2pw():
         pass
 
-c1=CELL("mC.vasp")
-import copy
-prim=copy.deepcopy(c1)
-c1.mbc2prim(prim)
 
-prim.printcell("prim.vasp")
+if __name__ == '__main__':
+    c1=CELL("mC.vasp")
+    prim=copy.deepcopy(c1)
+    c1.mbc2prim(prim)
+    
+    prim.printcell("prim.vasp")
+
