@@ -3,8 +3,9 @@
 
 """ @author: yyyu200@163.com """
 
-import numpy as np
 from CELL import CELL
+
+# test 4 kinds of unit to primitive cell transform
 
 c1=CELL("mC.vasp")
 prim=CELL.unit2prim(c1,13)

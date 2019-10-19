@@ -164,6 +164,11 @@ class CELL(object):
 
         return primcell
 
+    def makeslab(self, miller_index, length=20.0, origin_shift=0.0, vacuum=15.0):
+        slab=copy.deepcopy(self)
+         
+        
+        return slab
 
 if __name__ == '__main__':
     c1=CELL("mC.vasp")
