@@ -168,10 +168,10 @@ class CELL(object):
 
 
 if __name__ == '__main__':
-    #c1=CELL("mC.vasp")
-    #prim=copy.deepcopy(c1)
-    #c1.mbc2prim(prim)
-    #prim.print_poscar("prim.vasp")
+    c1=CELL("mC.vasp")
+    prim=copy.deepcopy(c1)
+    c1.mbc2prim(prim)
+    prim.print_poscar("prim.vasp")
 
     hexcell=CELL("Al2O3.vasp")
     rhcell=CELL.hex2rh(hexcell)
