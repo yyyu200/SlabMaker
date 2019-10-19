@@ -123,7 +123,7 @@ class CELL(object):
 
         self.at_sort()
 
-    def at_sort(self):
+    def at_sort(self): # sort by element type
         tmp=self.attyp[:].argsort(kind='mergesort')
         self.attyp=self.attyp[tmp]
         self.atpos=self.atpos[tmp]
@@ -163,16 +163,42 @@ class CELL(object):
         findfour()
         pass
 
-    def vasp2pw():
-        pass
+    @staticmethod
+    def unit2prim(unitcell, ibrav):
+        primcell=copy.deepcopy(unitcell)
+
+        if ibrav in [2,10]: # face center
+            P=np.mat([[0.0, 0.5, 0.5],[0.5, 0.0, 0.5],[0.5, 0.5, 0.0]],dtype=np.float64)
+            Q=np.mat([[-1,1,1],[1,-1,1],[1,1,-1]],dtype=np.float64)
+        elif ibrav in [3,7,11]: # body center
+            P=np.mat([[-0.5, 0.5, 0.5],[0.5, -0.5, 0.5],[0.5, 0.5, -0.5]],dtype=np.float64)
+            Q=np.mat([[0,1,1],[1,0,1],[1,1,0]],dtype=np.float64)
+        elif ibrav==5: # rhombohedral
+            P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)
+            Q=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
+        elif ibrav in [9,13]: # base center
+            P=np.mat([[0.5,-0.5,0],[0.5,0.5,0],[0,0,1.0]],dtype=np.float64)
+            Q=np.mat([[1,1,0],[-1,1,0],[0,0,1]],dtype=np.float64)
+
+        primcell.cell=(np.mat(unitcell.cell).T*P).T
+        primcell.nat=unitcell.nat
+        for i in range(primcell.nat):
+            primcell.atpos[i]=np.array(Q*(np.mat(unitcell.atpos[i]).T)).flatten()
+        primcell.tidy_up()
+        primcell.unique()
+
+        return primcell
 
 
 if __name__ == '__main__':
     c1=CELL("mC.vasp")
-    prim=copy.deepcopy(c1)
-    c1.mbc2prim(prim)
+    prim=CELL.unit2prim(c1,13)
     prim.print_poscar("prim.vasp")
 
     hexcell=CELL("Al2O3.vasp")
-    rhcell=CELL.hex2rh(hexcell)
+    rhcell=CELL.unit2prim(hexcell,5)
     rhcell.print_poscar("rh.vasp")
+
+    sc=CELL("sc.vasp")
+    fcc=CELL.unit2prim(sc,2)
+    fcc.print_poscar("fcc.vasp")
