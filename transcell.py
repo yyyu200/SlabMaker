@@ -32,6 +32,13 @@ class CELL(object):
                 self.typ_num[i]=int(ll[6].split()[i])
             self.coordsystem=ll[7] # Direct only, no 'Selective Dynamics' line expected
             self.nat=int(sum(self.typ_num))
+            self.attyp=np.zeros([self.nat],dtype=np.int32)
+            k=0
+            for i in range(self.ntyp):
+                for j in range(self.typ_num[i]):
+                    self.attyp[k]=i
+                    k+=1
+
             self.atpos=np.zeros([self.nat,3],dtype=np.float64)
             for i in range(self.nat):
                 for j in range(3):
@@ -53,8 +60,8 @@ class CELL(object):
         newCELL.nat=self.nat
         for i in range(newCELL.nat):
             newCELL.atpos[i]=np.array(Q*(np.mat(self.atpos[i]).T)).flatten()
-        #TODO: 去掉重复的原子
         newCELL.tidy_up()
+        newCELL.unique()
 
     @staticmethod
     def hex2rh(hexcell):
@@ -67,13 +74,43 @@ class CELL(object):
         for i in range(rhcell.nat):
             rhcell.atpos[i]=np.array(Q*(np.mat(hexcell.atpos[i]).T)).flatten()
         rhcell.tidy_up()
-        #TODO: 去掉重复的原子
-        rhcell.merge_duplicate()
+        rhcell.unique()
  
         return rhcell
 
-    def merge_duplicate(self):
-        pass
+    @staticmethod
+    def dist(a,b):
+        return np.linalg.norm(a-b)
+
+    def unique(self):
+        n=self.nat
+        i_kind=np.zeros([n],dtype=np.int32)
+        for i in range(n):
+            i_kind[i]=i
+
+        for i in range(n):
+            for j in range(i,n):
+                if dist(self.atpos[i],self.atpos[j])<self.close_thr:
+                    assert(self.attyp[i]==self.attyp[j])
+                    i_kind[i]=i_kind[i]
+                    i_kind[j]=i_kind[i]
+        uniq=[]
+        typ_of_uniq=[]
+        for i in np.unique(i_kind):
+            uniq.append(self.atpos[i])
+            typ_of_uniq.append(self.attyp[i])
+        
+        #print(i_kind)
+        self.nat=len(uniq)
+        self.atpos=np.array(uniq)
+        self.attyp=np.array(typ_of_uniq)
+
+        
+        for i in range(self.ntyp):
+            self.typ_num[i]=0
+            for j in range(self.nat):
+                if self.attyp[j]==i:
+                    self.typ_num[i]+=1
 
     def tidy_up(self): # tanslate to [0-1), sort by z axis
         for i in range(self.nat):
@@ -83,7 +120,15 @@ class CELL(object):
                     self.atpos[i][j]=tmp_f+1.0
                 else:
                     self.atpos[i][j]=tmp_f
-        self.atpos=self.atpos[self.atpos[:,2].argsort(kind='mergesort')]
+
+        self.at_sort()
+
+    def at_sort(self):
+        tmp=self.attyp[:].argsort(kind='mergesort')
+        self.attyp=self.attyp[tmp]
+        self.atpos=self.atpos[tmp]
+        #tmp=self.atpos[:,2].argsort(kind='mergesort')
+
 
     def print_poscar(self,fnam):
         '''
@@ -108,7 +153,7 @@ class CELL(object):
                 #dig=np.modf(self.atpos[i][j])[0]
                 #if dig < 0:
                 #    dig=dig+1.0
-                fo.write(" %.12f" % (np.modf(self.atpos[i][j])[0]))
+                fo.write(" %.12f" % ( self.atpos[i][j]))
             fo.write("\n")
     
     def findfour():
@@ -131,4 +176,3 @@ if __name__ == '__main__':
     hexcell=CELL("Al2O3.vasp")
     rhcell=CELL.hex2rh(hexcell)
     rhcell.print_poscar("rh.vasp")
-    print(rhcell)
