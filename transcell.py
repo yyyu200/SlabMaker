@@ -150,6 +150,10 @@ class CELL(object):
         elif ibrav in [9,13]: # base center
             P=np.mat([[0.5,-0.5,0],[0.5,0.5,0],[0,0,1.0]],dtype=np.float64)
             Q=np.mat([[1,1,0],[-1,1,0],[0,0,1]],dtype=np.float64)
+        else:
+            print("unit cell is primitive for ibrav: ", ibrav)
+            P=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
+            Q=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
 
         primcell.cell=(np.mat(unitcell.cell).T*P).T
         primcell.nat=unitcell.nat
