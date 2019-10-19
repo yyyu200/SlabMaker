@@ -1,4 +1,5 @@
 # Prerequisites
+*.pyc
 *.d
 
 # Compiled Object files
