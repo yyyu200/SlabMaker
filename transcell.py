@@ -6,10 +6,6 @@
 import numpy as np
 import copy
 
-def dist(a,b):
-    return np.linalg.norm(a-b)
-
-
 class CELL(object):
     close_thr=1.0e-4
     def __init__(self, fnam, fmt='POSCAR'):
@@ -53,31 +49,6 @@ class CELL(object):
     def __str__(self):
         return "cell\n"+self.cell.__str__() + "\natom positions:\n"+ self.atpos.__str__()
 
-    def mbc2prim(self,newCELL):
-        P=np.mat([[0.5,-0.5,0],[0.5,0.5,0],[0,0,1.0]],dtype=np.float64)
-        Q=np.mat([[1,1,0],[-1,1,0],[0,0,1]],dtype=np.float64)
-        newCELL.cell=(np.mat(self.cell).T*P).T
-        newCELL.nat=self.nat
-        for i in range(newCELL.nat):
-            newCELL.atpos[i]=np.array(Q*(np.mat(self.atpos[i]).T)).flatten()
-        newCELL.tidy_up()
-        newCELL.unique()
-
-    @staticmethod
-    def hex2rh(hexcell):
-        rhcell=copy.deepcopy(hexcell)
-        P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)
-        Q=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
-      
-        rhcell.cell=(np.mat(hexcell.cell).T*P).T
-        rhcell.nat=hexcell.nat
-        for i in range(rhcell.nat):
-            rhcell.atpos[i]=np.array(Q*(np.mat(hexcell.atpos[i]).T)).flatten()
-        rhcell.tidy_up()
-        rhcell.unique()
- 
-        return rhcell
-
     @staticmethod
     def dist(a,b):
         return np.linalg.norm(a-b)
@@ -90,7 +61,7 @@ class CELL(object):
 
         for i in range(n):
             for j in range(i,n):
-                if dist(self.atpos[i],self.atpos[j])<self.close_thr:
+                if CELL.dist(self.atpos[i],self.atpos[j])<self.close_thr:
                     assert(self.attyp[i]==self.attyp[j])
                     i_kind[i]=i_kind[i]
                     i_kind[j]=i_kind[i]
