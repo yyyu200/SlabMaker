@@ -154,19 +154,22 @@ class CELL(object):
             print("unit cell is primitive for ibrav: ", ibrav)
             P=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
             Q=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
-
+        
         primcell.cell=(np.mat(unitcell.cell).T*P).T
         primcell.nat=unitcell.nat
         for i in range(primcell.nat):
             primcell.atpos[i]=np.array(Q*(np.mat(unitcell.atpos[i]).T)).flatten()
         primcell.tidy_up()
         primcell.unique()
+        # assert 变换之后填满了原胞，不需要继续填充
 
         return primcell
 
     def makeslab(self, miller_index, length=20.0, origin_shift=0.0, vacuum=15.0):
-        slab=copy.deepcopy(self)
-         
+        proposal=copy.deepcopy(self)
+        
+
+        slab=proposal #TODO  
         
         return slab
 
