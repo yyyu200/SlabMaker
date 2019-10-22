@@ -134,6 +134,13 @@ class CELL(object):
         findfour()
         pass
 
+    def fillbytranslate():
+        '''
+        use a cell to fill in new cell by translate of base vectors
+        '''
+        
+        pass
+
     @staticmethod
     def unit2prim(unitcell, ibrav):
         primcell=copy.deepcopy(unitcell)
@@ -165,9 +172,13 @@ class CELL(object):
 
         return primcell
 
-    def makeslab(self, miller_index, length=20.0, origin_shift=0.0, vacuum=15.0):
+    def makeslab(self, miller_index, length=-1.0, layer=-1, origin_shift=0.0, vacuum=15.0):
         proposal=copy.deepcopy(self)
-        
+        if miller_index==[0,0,0]:
+            raise Exception,"miller_inedex 0 0 0!"
+        if miller_index[0]**2+miller_index[1]**2==0:
+            proposal.cell[2]*=layer         
+            proposal.cell[2]+=vacuum   
 
         slab=proposal #TODO  
         

@@ -8,8 +8,8 @@ from CELL import CELL
 
 unitcell=CELL("Al2O3.vasp")
 
-miller_index=[1,1,0]
-slab=unitcell.makeslab(miller_index, length=50.0)
+miller_index=[0,0,1]
+slab=unitcell.makeslab(miller_index, layer=5)
 
 slab.print_poscar("slab.vasp")
 
