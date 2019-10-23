@@ -60,10 +60,9 @@ class CELL(object):
             i_kind[i]=i
 
         for i in range(n):
-            for j in range(i,n):
+            for j in range(i+1,n):
                 if CELL.dist(self.atpos[i],self.atpos[j])<self.close_thr:
                     assert(self.attyp[i]==self.attyp[j])
-                    i_kind[i]=i_kind[i]
                     i_kind[j]=i_kind[i]
         uniq=[]
         typ_of_uniq=[]
@@ -163,6 +162,7 @@ class CELL(object):
             Q=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
         
         primcell.cell=(np.mat(unitcell.cell).T*P).T
+        assert np.linalg.det(primcell.cell)>=0
         primcell.nat=unitcell.nat
         for i in range(primcell.nat):
             primcell.atpos[i]=np.array(Q*(np.mat(unitcell.atpos[i]).T)).flatten()
