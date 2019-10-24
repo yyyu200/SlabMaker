@@ -133,12 +133,21 @@ class CELL(object):
         findfour()
         pass
 
-    def fillbytranslate():
+    @staticmethod
+    def cell2supercell(cell, P):
         '''
         use a cell to fill in new cell by translate of base vectors
         '''
         
-        pass
+        supercell=copy.deepcopy(cell)
+        supercell.cell=(np.mat(cell.cell).T*P).T
+        assert np.linalg.det(supercell.cell)>=0
+
+        Q=np.linalg.inv(P)
+        for i in range(cell.nat):
+            supercell.atpos[i]=np.array(Q*(np.mat(cell.atpos[i]).T)).flatten()
+        
+        return supercell
 
     @staticmethod
     def unit2prim(unitcell, ibrav):
@@ -173,7 +182,7 @@ class CELL(object):
         return primcell
 
     def makesupercell(self, P):
-        
+        pass 
         
     def makeslab(self, miller_index, length=-1.0, layer=-1, origin_shift=0.0, vacuum=15.0):
         proposal=copy.deepcopy(self)
