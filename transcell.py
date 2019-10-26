@@ -22,3 +22,4 @@ rhcell.print_poscar("rh.vasp")
 c1=CELL("mC.vasp")
 prim=CELL.unit2prim(c1,13)
 prim.print_poscar("prim.vasp")
+

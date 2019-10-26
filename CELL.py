@@ -133,6 +133,21 @@ class CELL(object):
         findfour()
         pass
 
+    def get_volume(self):
+        self.volume=np.dot(np.cross(self.cell[0], self.cell[1]),self.cell.[2])
+        return self.volume
+
+    def get_rec(self):
+        self.rec=np.zeros([3,3],dtype=np.float64)
+        for i in range(3):
+            self.rec[i]=np.cross(self.cell[(i+1)%3], self.cell[(i+2)%3])/self.get_volume();
+         
+        return self.rec
+
+    def cart2direct(self, a):
+        b=np.matmul(self.get_rec(), a)
+        return b
+
     @staticmethod
     def cell2supercell(cell, P):
         '''
@@ -146,7 +161,12 @@ class CELL(object):
         Q=np.linalg.inv(P)
         for i in range(cell.nat):
             supercell.atpos[i]=np.array(Q*(np.mat(cell.atpos[i]).T)).flatten()
-        
+
+        cellpara_new=np.zeros([3,3],dtype=np.float64)
+        for i in range(3):
+            cellpara_new[i]=np.array(Q*(np.mat(cell.cell[i]).T)).flatten()
+
+        print(cell.cell,cellpara_new) 
         return supercell
 
     @staticmethod
@@ -201,3 +221,5 @@ if __name__ == '__main__':
     prim=CELL.unit2prim(c1,13)
     prim.print_poscar("prim.vasp")
 
+    P=np.mat([[2,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
+    CELL.cell2supercell(c1,P)
