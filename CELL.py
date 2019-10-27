@@ -135,13 +135,17 @@ class CELL(object):
 
     def get_volume(self):
         self.volume=np.dot(np.cross(self.cell[0], self.cell[1]),self.cell[2])
-        assert self.volume>0
+        assert self.volume>0.0
         return self.volume
 
     def get_rec(self):
+        '''
+            get reciprocal lattice, crystallographer's definition, without factor of 2 \pi
+        '''
         self.rec=np.zeros([3,3],dtype=np.float64)
+        self.volume=self.get_volume()
         for i in range(3):
-            self.rec[i]=np.cross(self.cell[(i+1)%3], self.cell[(i+2)%3])/self.get_volume();
+            self.rec[i]=np.cross(self.cell[(i+1)%3], self.cell[(i+2)%3])/self.volume;
          
         return self.rec
 
@@ -163,7 +167,7 @@ class CELL(object):
         for i in range(cell.nat):
             supercell.atpos[i]=np.array(Q*(np.mat(cell.atpos[i]).T)).flatten()
 
-        cellpara_new=np.zeros([3,3],dtype=np.float64)
+        cellpara_new=np.zeros([3,3], dtype=np.float64)
         for i in range(3):
             cellpara_new[i]=np.array(Q*(np.mat(cell.cell[i]).T)).flatten()
 
@@ -192,6 +196,7 @@ class CELL(object):
             Q=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
         
         primcell.cell=(np.mat(unitcell.cell).T*P).T
+        primcell.cell=np.array(primcell.cell)
         assert np.linalg.det(primcell.cell)>=0
         primcell.nat=unitcell.nat
         for i in range(primcell.nat):
@@ -218,9 +223,10 @@ class CELL(object):
         return slab
 
 if __name__ == '__main__':
-    c1=CELL("mC.vasp")
+    c1=CELL("sc.vasp")
     prim=CELL.unit2prim(c1,13)
-    prim.print_poscar("prim.vasp")
+    prim.print_poscar("fcc.vasp")
+    print(prim.cart2direct(np.ones([3,3])[0]))
 
-    P=np.mat([[2,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
-    CELL.cell2supercell(c1,P)
+    #P=np.mat([[2,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
+    #CELL.cell2supercell(c1,P)
