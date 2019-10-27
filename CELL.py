@@ -134,7 +134,8 @@ class CELL(object):
         pass
 
     def get_volume(self):
-        self.volume=np.dot(np.cross(self.cell[0], self.cell[1]),self.cell.[2])
+        self.volume=np.dot(np.cross(self.cell[0], self.cell[1]),self.cell[2])
+        assert self.volume>0
         return self.volume
 
     def get_rec(self):
