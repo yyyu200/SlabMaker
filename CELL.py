@@ -153,6 +153,13 @@ class CELL(object):
         b=np.matmul(self.get_rec(), a)
         return b
 
+    def append(self, atpos, attyp):
+        atpos=atpos.reshape(1,3)
+        attyp=np.array([attyp])
+        self.atpos=np.concatenate((self.atpos, atpos), axis=0)
+        self.attyp=np.concatenate((self.attyp, attyp), axis=0)
+        self.nat+=1
+
     @staticmethod
     def cell2supercell(cell, P):
         '''
@@ -161,17 +168,39 @@ class CELL(object):
         
         supercell=copy.deepcopy(cell)
         supercell.cell=(np.mat(cell.cell).T*P).T
+        supercell.cell=np.array(supercell.cell) # mat to array
+
         assert np.linalg.det(supercell.cell)>=0
 
         Q=np.linalg.inv(P)
         for i in range(cell.nat):
             supercell.atpos[i]=np.array(Q*(np.mat(cell.atpos[i]).T)).flatten()
 
-        cellpara_new=np.zeros([3,3], dtype=np.float64)
+        origin=np.zeros([3,3], dtype=np.float64)
         for i in range(3):
-            cellpara_new[i]=np.array(Q*(np.mat(cell.cell[i]).T)).flatten()
+            cell_i_frac=cell.cart2direct(cell.cell[i]) # one hot
+            origin[i]=np.array(Q*(np.mat(cell_i_frac).T)).flatten()
+        
+        L,M,N=-1,-1,-1
+        RANGE_N=int(max(supercell.get_volume()/cell.get_volume(),5)) #TODO: is this enough?
+        for i in range(RANGE_N):
+            if ((origin[0]*i)[:]>1.0).any() and L<0:
+                L=i
+            if ((origin[1]*i)[:]>1.0).any() and M<0:
+                M=i
+            if ((origin[2]*i)[:]>1.0).any() and N<0:
+                N=i
 
-        print(cell.cell,cellpara_new) 
+        
+        for n in range(supercell.nat):
+            for i in range(L):
+                for j in range(M):
+                    for k in range(N):
+                        supercell.append(supercell.atpos[n]+i*origin[0]+j*origin[1]+k*origin[2], supercell.attyp[n])
+
+        supercell.tidy_up()
+        supercell.unique()
+
         return supercell
 
     @staticmethod
@@ -226,7 +255,8 @@ if __name__ == '__main__':
     c1=CELL("sc.vasp")
     prim=CELL.unit2prim(c1,13)
     prim.print_poscar("fcc.vasp")
-    print(prim.cart2direct(np.ones([3,3])[0]))
 
-    #P=np.mat([[2,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
-    #CELL.cell2supercell(c1,P)
+    P=np.mat([[2,0,0],[0,2,0],[0,0,2]], dtype=np.float64)
+    c2=CELL.cell2supercell(c1,P)
+    print(c2)
+    print(c2.nat)
