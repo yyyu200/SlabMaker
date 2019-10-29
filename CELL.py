@@ -1,10 +1,19 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 """ @author: yyyu200@163.com """
 
 import numpy as np
 import copy
+
+def ext_euclid(a, b):
+     # find root of ax+by=gcd(a,b) =q
+     if b == 0:
+         return 1, 0, a
+     else:
+         x, y, q = ext_euclid(b, a % b) # q = gcd(a, b) = gcd(b, a%b)
+         x, y = y, (x - (a // b) * y)
+         return x, y, q
 
 class CELL(object):
     close_thr=1.0e-4
@@ -176,27 +185,30 @@ class CELL(object):
         for i in range(cell.nat):
             supercell.atpos[i]=np.array(Q*(np.mat(cell.atpos[i]).T)).flatten()
 
-        origin=np.zeros([3,3], dtype=np.float64)
+        trans=np.zeros([3,3], dtype=np.float64)
         for i in range(3):
             cell_i_frac=cell.cart2direct(cell.cell[i]) # one hot
-            origin[i]=np.array(Q*(np.mat(cell_i_frac).T)).flatten()
+            trans[i]=np.array(Q*(np.mat(cell_i_frac).T)).flatten()
         
         L,M,N=-1,-1,-1
-        RANGE_N=int(max(supercell.get_volume()/cell.get_volume(),5)) #TODO: is this enough?
-        for i in range(RANGE_N):
-            if ((origin[0]*i)[:]>1.0).any() and L<0:
-                L=i
-            if ((origin[1]*i)[:]>1.0).any() and M<0:
-                M=i
-            if ((origin[2]*i)[:]>1.0).any() and N<0:
-                N=i
-
-        
+        i=1
+        while L<0 or M<0 or N<0:
+            if ((trans[0]*i)[:]>=1.0).any() and L<0:
+                L=i+1
+            if ((trans[1]*i)[:]>=1.0).any() and M<0:
+                M=i+1
+            if ((trans[2]*i)[:]>=1.0).any() and N<0:
+                N=i+1
+            if i>1000:
+                break
+            i+=1
+        print(L,M,N)
+         
         for n in range(supercell.nat):
             for i in range(L):
                 for j in range(M):
                     for k in range(N):
-                        supercell.append(supercell.atpos[n]+i*origin[0]+j*origin[1]+k*origin[2], supercell.attyp[n])
+                        supercell.append(supercell.atpos[n]+i*trans[0]+j*trans[1]+k*trans[2], supercell.attyp[n])
 
         supercell.tidy_up()
         supercell.unique()
@@ -236,27 +248,34 @@ class CELL(object):
 
         return primcell
 
-    def makesupercell(self, P):
-        pass 
-        
     def makeslab(self, miller_index, length=-1.0, layer=-1, origin_shift=0.0, vacuum=15.0):
         proposal=copy.deepcopy(self)
-        if miller_index==[0,0,0]:
+        P=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
+        h,k,l=miller_index
+        if (h,k,l) is (0,0,0):
             raise Exception,"miller_inedex 0 0 0!"
-        if miller_index[0]**2+miller_index[1]**2==0:
-            proposal.cell[2]*=layer         
-            proposal.cell[2]+=vacuum   
-
-        slab=proposal #TODO  
+        if h**2+k**2==0:
+            P[2,2]*=layer
+        else: 
+            p,q,_=ext_euclid(k,l)       
+            P[0]=[p*k+q*l,-p*h,-q*h]
+            P[1]=[0, q*l, -q*k]
+            P[2]=np.cross(P[0], P[1])
+            
+        print(P.T)
+        slab=CELL.cell2supercell(self,P.T) #TODO  
         
         return slab
 
 if __name__ == '__main__':
-    c1=CELL("sc.vasp")
-    prim=CELL.unit2prim(c1,13)
-    prim.print_poscar("fcc.vasp")
+    c1=CELL("Al2O3.vasp")
+    prim=CELL.unit2prim(c1,5)
+    prim.print_poscar("rh.vasp")
 
     P=np.mat([[2,0,0],[0,2,0],[0,0,2]], dtype=np.float64)
     c2=CELL.cell2supercell(c1,P)
-    print(c2)
-    print(c2.nat)
+    c2.print_poscar("./test/c2.vasp")
+
+    slab=c1.makeslab([0,1,1], layer=3)
+    slab.print_poscar("./test/slab.vasp")
+
