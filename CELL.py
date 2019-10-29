@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """ @author: yyyu200@163.com """
@@ -202,7 +202,7 @@ class CELL(object):
             if i>1000:
                 break
             i+=1
-        print(L,M,N)
+        #print(L,M,N)
          
         for n in range(supercell.nat):
             for i in range(L):
@@ -249,21 +249,32 @@ class CELL(object):
         return primcell
 
     def makeslab(self, miller_index, length=-1.0, layer=-1, origin_shift=0.0, vacuum=15.0):
-        proposal=copy.deepcopy(self)
-        P=np.mat([[1,0,0],[0,1,0],[0,0,1]], dtype=np.float64)
+        P=np.mat(np.eye(3, dtype=np.float64))
         h,k,l=miller_index
-        if (h,k,l) is (0,0,0):
-            raise Exception,"miller_inedex 0 0 0!"
-        if h**2+k**2==0:
-            P[2,2]*=layer
-        else: 
-            p,q,_=ext_euclid(k,l)       
+        e=np.gcd(h, np.gcd(k,l))
+        if e>1:
+            h=h//e
+            k=k//e
+            l=l//e
+            print("find miller index ( ",h,k,l," ) instead.")
+
+        if h==0 and k==0 and l==0:
+            print("miller_index cannot be 0 0 0!")
+            raise Exception
+        elif h==0 and k==0:
+            P[2,2]=layer
+        elif k==0 and l==0:
+            P[0,0]=layer
+        elif h==0 and l==0:
+            P[1,1]=layer
+        else:
+            p,q,_=ext_euclid(k,l)
             P[0]=[p*k+q*l,-p*h,-q*h]
-            P[1]=[0, q*l, -q*k]
+            P[1]=[0, l, -k]
             P[2]=np.cross(P[0], P[1])
-            
-        print(P.T)
-        slab=CELL.cell2supercell(self,P.T) #TODO  
+        
+        print(P)    
+        slab=CELL.cell2supercell(self,P) #TODO  
         
         return slab
 
@@ -272,10 +283,10 @@ if __name__ == '__main__':
     prim=CELL.unit2prim(c1,5)
     prim.print_poscar("rh.vasp")
 
-    P=np.mat([[2,0,0],[0,2,0],[0,0,2]], dtype=np.float64)
+    P=np.mat([[2,0,0],[0,2,0],[0,0,1]], dtype=np.float64)
     c2=CELL.cell2supercell(c1,P)
     c2.print_poscar("./test/c2.vasp")
 
-    slab=c1.makeslab([0,1,1], layer=3)
+    slab=c1.makeslab([1,1,1], layer=3)
     slab.print_poscar("./test/slab.vasp")
 
