@@ -309,19 +309,43 @@ class CELL(object):
             raise Exception
         elif h==0 and k==0:
             P[2,2]=layer
-        elif k==0 and l==0:
+        elif k==0 and l==0: # slab not along z
             P[0,0]=layer
         elif h==0 and l==0:
             P[1,1]=layer
         else:
             p,q,_=ext_euclid(k,l)
-            P[0]=[p*k+q*l,-p*h,-q*h]
-            P[1]=[0, l, -k]
-            P[2]=np.cross(P[0], P[1])
+            print("$",p,q)
+            c1,c2,c3=self.cell
+    
+            k1=np.dot(p*(k*c1-h*c2)+q*(l*c1-h*c3),
+                        l*c2-k*c3)
+            k2=np.dot(l*(k*c1-h*c2)-k*(l*c1-h*c3),
+                        l*c2-k*c3)
+    
+            if abs(k2) > self.close_thr:
+                i=-int(round(k1/k2))
+                p,q=p+i*l,q-i*k
+    
+            print("$",p,q)
+            a,b,_= ext_euclid(p*k + q*l, h)
+            print("$",a,b)
+
+
+            P[0]=(p * k + q * l, -p * h, -q * h)
+            P[1]=np.array((0, l, -k)) // abs(np.gcd(l, k))
+            P[2]=(b, a * p, a * q)
+            P[2]*=layer
+
+            #P[0]=[p*k+q*l,-p*h,-q*h]
+            #P[1]=[0, l, -k]
+            #P[2]=np.cross(P[0], P[1])
         
         print(P)    
         slab=CELL.cell2supercell(self,P) #TODO  
-        
+        sr=slab.get_rec()
+        print(sr)
+        print("##",slab.cell[2], sr[0]*h+sr[1]*k+sr[2]*l  )
         return slab
 
 if __name__ == '__main__':
@@ -329,15 +353,15 @@ if __name__ == '__main__':
     prim=CELL.unit2prim(c1,5)
     prim.print_poscar("rh.vasp")
 
-    P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
-    c2=CELL.cell2supercell(prim,P)
-    c2.print_poscar("./test/c2.vasp")
+    #P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
+    #c2=CELL.cell2supercell(prim,P)
+    #c2.print_poscar("./test/c2.vasp")
     #print(c2.get_volume(), prim.get_volume())
 
-    P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)    
-    prim=CELL.cell2supercell(c1,P)
-    prim.print_poscar("rh.vasp")
+    #P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)    
+    #prim=CELL.cell2supercell(c1,P)
+    #prim.print_poscar("./test/rh2.vasp")
 
-    #slab=c1.makeslab([1,1,1], layer=3)
-    #slab.print_poscar("./test/slab.vasp")
+    slab=c1.makeslab([2,1,1], layer=3)
+    slab.print_poscar("./test/slab.vasp")
 
