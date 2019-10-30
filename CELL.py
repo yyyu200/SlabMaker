@@ -59,7 +59,7 @@ class CELL(object):
         return "cell\n"+self.cell.__str__() + "\natom positions:\n"+ self.atpos.__str__()
 
     @staticmethod
-    def dist(a,b):
+    def dist(a,b): # TODO: a and b are fractional coordinates
         return np.linalg.norm(a-b)
 
     def unique(self):
@@ -95,10 +95,14 @@ class CELL(object):
         for i in range(self.nat):
             for j in range(3):
                 tmp_f, tmp_i=np.modf(self.atpos[i][j]) # the fractional part , the interger part
-                if tmp_f < 0.0:
+                # consider when tmp_i is small negative, e.g. -1e-17 , -1e-17+1=1
+                if tmp_f < 0.0- self.close_thr:
                     self.atpos[i][j]=tmp_f+1.0
+                elif np.fabs(tmp_f)<=self.close_thr or np.fabs(tmp_f-1.0)<=self.close_thr:
+                    self.atpos[i][j]=0.0
                 else:
                     self.atpos[i][j]=tmp_f
+                assert self.atpos[i][j]<1.0 and self.atpos[i][j]>=0.0- self.close_thr
 
         self.at_sort()
 
@@ -134,6 +138,8 @@ class CELL(object):
                 #    dig=dig+1.0
                 fo.write(" %.12f" % ( self.atpos[i][j]))
             fo.write("\n")
+
+        fo.close()
     
     def findfour():
         pass    
@@ -170,6 +176,37 @@ class CELL(object):
         self.nat+=1
 
     @staticmethod
+    def is_inside(A, B, La,Ma,Na, Lb,Mb,Nb):
+        ''' 
+            cell A is inside cell B repeat by La~Lb, Ma~Mb, Na~Nb, A and B have the same origin
+            the 8 corners of A in inside repeated B
+        '''
+        if Lb<=La or Mb<=Ma or Nb<=Na:
+            return False
+
+        P=np.mat(np.eye(3,dtype=np.float64))
+        P[0,0]=Lb-La
+        P[1,1]=Mb-Ma
+        P[2,2]=Nb-Na
+        Brepeat=copy.deepcopy(B)
+        Brepeat.cell=np.array((np.mat(B.cell).T*P).T)
+        Acell=np.zeros([3,3],dtype=np.float64)
+        for i in range(3):
+            Acell[i]=Brepeat.cart2direct(A.cell[i])
+            #print("$",Acell[i])
+    
+        for i in range(8):
+            corner=np.array([0.0 if np.fabs(La)<CELL.close_thr else -1.0/La, 
+                             0.0 if np.fabs(Ma)<CELL.close_thr else -1.0/Ma, 
+                             0.0 if np.fabs(Na)<CELL.close_thr else -1.0/Na])
+            for j in range(3):
+                corner+=(i>>j)%2*Acell[j]
+            if (corner>1.0+CELL.close_thr).any() or ( corner<0.0-CELL.close_thr).any():
+                return False
+      
+        return True 
+
+    @staticmethod
     def cell2supercell(cell, P):
         '''
         use a cell to fill in new cell by translate of base vectors
@@ -179,35 +216,44 @@ class CELL(object):
         supercell.cell=(np.mat(cell.cell).T*P).T
         supercell.cell=np.array(supercell.cell) # mat to array
 
-        assert np.linalg.det(supercell.cell)>=0
+        assert np.linalg.det(supercell.cell)>0
 
         Q=np.linalg.inv(P)
         for i in range(cell.nat):
             supercell.atpos[i]=np.array(Q*(np.mat(cell.atpos[i]).T)).flatten()
-
+        
+        # trans: fractional coordinates of cell vectors in supercell
+        # atoms translate by trans is allowed in supercell
         trans=np.zeros([3,3], dtype=np.float64)
         for i in range(3):
             cell_i_frac=cell.cart2direct(cell.cell[i]) # one hot
             trans[i]=np.array(Q*(np.mat(cell_i_frac).T)).flatten()
-        
-        L,M,N=-1,-1,-1
-        i=1
-        while L<0 or M<0 or N<0:
-            if ((trans[0]*i)[:]>=1.0).any() and L<0:
-                L=i+1
-            if ((trans[1]*i)[:]>=1.0).any() and M<0:
-                M=i+1
-            if ((trans[2]*i)[:]>=1.0).any() and N<0:
-                N=i+1
-            if i>1000:
-                break
-            i+=1
-        #print(L,M,N)
+       
+        La,Ma,Na=0,0,0
+        Lb,Mb,Nb=1,1,1
+        while not CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb,Nb):
+            La-=1;Ma-=1;Na-=1
+            Lb+=1;Mb+=1;Nb+=1
+
+        while CELL.is_inside(supercell,cell,La+1,Ma,Na,Lb,Mb,Nb):
+            La+=1
+        while CELL.is_inside(supercell,cell,La,Ma+1,Na,Lb,Mb,Nb):
+            Ma+=1
+        while CELL.is_inside(supercell,cell,La,Ma,Na+1,Lb,Mb,Nb):
+            Na+=1
+        while CELL.is_inside(supercell,cell,La,Ma,Na,Lb-1,Mb,Nb):
+            Lb-=1
+        while CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb-1,Nb):
+            Mb-=1
+        while CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb,Nb-1):
+            Nb-=1
+
+        #print(La,Ma,Na, Lb,Mb,Nb)
          
         for n in range(supercell.nat):
-            for i in range(L):
-                for j in range(M):
-                    for k in range(N):
+            for i in range(La,Lb+1):
+                for j in range(Ma,Mb+1):
+                    for k in range(Na,Nb+1):
                         supercell.append(supercell.atpos[n]+i*trans[0]+j*trans[1]+k*trans[2], supercell.attyp[n])
 
         supercell.tidy_up()
@@ -283,10 +329,15 @@ if __name__ == '__main__':
     prim=CELL.unit2prim(c1,5)
     prim.print_poscar("rh.vasp")
 
-    P=np.mat([[2,0,0],[0,2,0],[0,0,1]], dtype=np.float64)
-    c2=CELL.cell2supercell(c1,P)
+    P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
+    c2=CELL.cell2supercell(prim,P)
     c2.print_poscar("./test/c2.vasp")
+    #print(c2.get_volume(), prim.get_volume())
 
-    slab=c1.makeslab([1,1,1], layer=3)
-    slab.print_poscar("./test/slab.vasp")
+    P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)    
+    prim=CELL.cell2supercell(c1,P)
+    prim.print_poscar("rh.vasp")
+
+    #slab=c1.makeslab([1,1,1], layer=3)
+    #slab.print_poscar("./test/slab.vasp")
 
