@@ -316,36 +316,33 @@ class CELL(object):
         else:
             p,q,_=ext_euclid(k,l)
             print("$",p,q)
-            c1,c2,c3=self.cell
+            c1,c2,c3=self.cell[:][0], self.cell[:][1], self.cell[:][2]
     
             k1=np.dot(p*(k*c1-h*c2)+q*(l*c1-h*c3),
                         l*c2-k*c3)
             k2=np.dot(l*(k*c1-h*c2)-k*(l*c1-h*c3),
                         l*c2-k*c3)
     
-            if abs(k2) > self.close_thr:
+            if np.fabs(k2) > self.close_thr:
                 i=-int(round(k1/k2))
                 p,q=p+i*l,q-i*k
     
-            print("$",p,q)
-            a,b,_= ext_euclid(p*k + q*l, h)
-            print("$",a,b)
-
-
             P[0]=(p * k + q * l, -p * h, -q * h)
             P[1]=np.array((0, l, -k)) // abs(np.gcd(l, k))
+            a,b,_= ext_euclid(p*k + q*l, h)
             P[2]=(b, a * p, a * q)
-            P[2]*=layer
+            #P[2]*=layer
 
             #P[0]=[p*k+q*l,-p*h,-q*h]
             #P[1]=[0, l, -k]
             #P[2]=np.cross(P[0], P[1])
         
-        print(P)    
+        print("unit cell: ", self.cell,"\n P=",P)    
         slab=CELL.cell2supercell(self,P) #TODO  
         sr=slab.get_rec()
-        print(sr)
-        print("##",slab.cell[2], sr[0]*h+sr[1]*k+sr[2]*l  )
+        print(sr,"\n", slab.cell)
+        print("## n ", sr[0]*h+sr[1]*k+sr[2]*l)
+
         return slab
 
 if __name__ == '__main__':
@@ -362,6 +359,6 @@ if __name__ == '__main__':
     #prim=CELL.cell2supercell(c1,P)
     #prim.print_poscar("./test/rh2.vasp")
 
-    slab=c1.makeslab([2,1,1], layer=3)
+    slab=c1.makeslab([1,1,0], layer=3)
     slab.print_poscar("./test/slab.vasp")
 
