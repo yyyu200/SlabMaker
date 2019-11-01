@@ -213,7 +213,9 @@ class CELL(object):
         '''
         
         supercell=copy.deepcopy(cell)
+        P=np.mat(P)
         supercell.cell=(np.mat(cell.cell).T*P).T
+        print("**", np.mat(cell.cell).T,"**",P,"**", supercell.cell.T)
         supercell.cell=np.array(supercell.cell) # mat to array
 
         assert np.linalg.det(supercell.cell)>0
