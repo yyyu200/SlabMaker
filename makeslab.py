@@ -3,13 +3,12 @@
 
 """ @author: yyyu200@163.com """
 
-import numpy as np
 from CELL import CELL
 
 unitcell=CELL("sc.vasp")
 
-miller_index=[1,1,0]
-slab=unitcell.makeslab(miller_index, layer=1)
+miller_index=[1,1,1]
+slab=unitcell.makeslab(miller_index, layer=2)
 
 slab.print_poscar("./test/slab.vasp")
 

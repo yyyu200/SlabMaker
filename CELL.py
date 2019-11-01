@@ -15,6 +15,15 @@ def ext_euclid(a, b):
          x, y = y, (x - (a // b) * y)
          return x, y, q
 
+def ext_gcd(a, b):
+    if b == 0:
+        return 1, 0
+    elif a % b == 0:
+        return 0, 1
+    else:
+        x, y = ext_gcd(b, a % b)
+        return y, x - y * (a // b)
+
 class CELL(object):
     close_thr=1.0e-4
     def __init__(self, fnam, fmt='POSCAR'):
@@ -213,9 +222,8 @@ class CELL(object):
         '''
         
         supercell=copy.deepcopy(cell)
-        P=np.mat(P)
-        supercell.cell=(np.mat(cell.cell).T*P).T
-        print("**", np.mat(cell.cell).T,"**",P,"**", supercell.cell.T)
+        supercell.cell=P*(np.mat(cell.cell).T)
+        print("cell **\n", np.mat(cell.cell),"**P\n",P,"** supercell.cell\n", supercell.cell)
         supercell.cell=np.array(supercell.cell) # mat to array
 
         assert np.linalg.det(supercell.cell)>0
@@ -316,9 +324,9 @@ class CELL(object):
         elif h==0 and l==0:
             P[1,1]=layer
         else:
-            p,q,_=ext_euclid(k,l)
-            print("$",p,q)
+            p,q=ext_gcd(k,l)
             c1,c2,c3=self.cell[:][0], self.cell[:][1], self.cell[:][2]
+            #c1,c2,c3=self.cell
     
             k1=np.dot(p*(k*c1-h*c2)+q*(l*c1-h*c3),
                         l*c2-k*c3)
@@ -331,15 +339,12 @@ class CELL(object):
     
             P[0]=(p * k + q * l, -p * h, -q * h)
             P[1]=np.array((0, l, -k)) // abs(np.gcd(l, k))
-            a,b,_= ext_euclid(p*k + q*l, h)
+            a,b= ext_gcd(p*k + q*l, h)
             P[2]=(b, a * p, a * q)
-            #P[2]*=layer
+            P[2]*=layer
         
-        print("unit cell: ", self.cell,"\n P=",P)    
-        slab=CELL.cell2supercell(self,P) #TODO  
-        sr=slab.get_rec()
-        print(sr,"\n", slab.cell)
-        print("## n ", sr[0]*h+sr[1]*k+sr[2]*l)
+        slab=CELL.cell2supercell(self,P.T) #TODO  
+        print("slab cell \n", slab.cell)
 
         return slab
 
