@@ -332,10 +332,6 @@ class CELL(object):
             a,b,_= ext_euclid(p*k + q*l, h)
             P[2]=(b, a * p, a * q)
             #P[2]*=layer
-
-            #P[0]=[p*k+q*l,-p*h,-q*h]
-            #P[1]=[0, l, -k]
-            #P[2]=np.cross(P[0], P[1])
         
         print("unit cell: ", self.cell,"\n P=",P)    
         slab=CELL.cell2supercell(self,P) #TODO  
@@ -359,6 +355,6 @@ if __name__ == '__main__':
     #prim=CELL.cell2supercell(c1,P)
     #prim.print_poscar("./test/rh2.vasp")
 
-    slab=c1.makeslab([1,1,0], layer=3)
+    slab=c1.makeslab([1,1,0], layer=1)
     slab.print_poscar("./test/slab.vasp")
 
