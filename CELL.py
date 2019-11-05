@@ -103,9 +103,9 @@ class CELL(object):
                         is_angstrom=re.search('angstrom',l)
                         is_bohr=re.search('bohr',l)
                         for j in range(3):
-                            self.cell[j][0]=np.float64(ll[j+i].split()[0])
-                            self.cell[j][1]=np.float64(ll[j+i].split()[1])
-                            self.cell[j][2]=np.float64(ll[j+i].split()[2])
+                            self.cell[j,0]=np.float64(ll[j+i].split()[0])
+                            self.cell[j,1]=np.float64(ll[j+i].split()[1])
+                            self.cell[j,2]=np.float64(ll[j+i].split()[2])
                         break
                     else:
                         continue
@@ -407,7 +407,29 @@ class CELL(object):
 
         return primcell
 
+    def set_cell(self,cell):
+        self.cell=np.mat(cell)
+
+    def cell_redefine(self):
+        '''Re-define unit cell to have the x-axis parallel with a surface vector and z perpendicular to the surface
+         
+        lattice: Atoms object
+            The cell is rotated.
+        '''
+        from numpy.linalg import norm
+        a1, a2, a3 = self.cell
+        self.set_cell([a1, a2, np.cross(a1, a2) * np.dot(a3, np.cross(a1, a2)) /norm(np.cross(a1, a2))**2])
+    
+        a1, a2, a3 = np.array(self.cell)
+        self.set_cell([[norm(a1), 0, 0], 
+                          [np.dot(a1, a2) / norm(a1), 
+                          np.sqrt(norm(a2)**2 - (np.dot(a1, a2) / norm(a1))**2), 0],
+                          [0, 0, norm(a3)]] )
+
     def makeslab(self, miller_index, length=-1.0, layer=-1, method="point-group", origin_shift=0.0, vacuum=15.0):
+        '''
+        self is unit-cell
+        '''
         P=np.mat(np.eye(3, dtype=np.float64))
         h,k,l=miller_index
         e=np.gcd(h, np.gcd(k,l))
@@ -428,7 +450,6 @@ class CELL(object):
             P[1,1]=layer
         else:
             p,q, _ =ext_euclid(k,l)
-            #c1,c2,c3=self.cell[:][0], self.cell[:][1], self.cell[:][2]
             c1,c2,c3=self.cell
     
             k1=np.dot(p*(k*c1-h*c2)+q*(l*c1-h*c3), l*c2-k*c3)
@@ -436,10 +457,7 @@ class CELL(object):
             if np.fabs(k2) > self.close_thr:
                 i=-int(round(k1/k2))
                 p,q=p+i*l,q-i*k
-            print("#: ",i,k1,k2,p,q) 
             
-            a,b, _= ext_euclid(p*k + q*l, h)
-    
             P[0]=(p * k + q * l, -p * h, -q * h)
             P[1]=np.array((0, l, -k)) // abs(np.gcd(l, k))
             P[2]=(h,k,l)
@@ -447,7 +465,20 @@ class CELL(object):
             P=P.T
       
         print("P = ",P) 
-        slab=CELL.cell2supercell(self,P) #TODO  
+        slab=CELL.cell2supercell(self,P)
+        print("slab cell \n", slab.cell)
+        slab.cell_redefine()
+        zmax=np.max(slab.atpos[:,2])
+        zmin=np.min(slab.atpos[:,2])
+
+        oldC=np.linalg.norm(slab.cell[2])
+        newC=oldC*(zmax-zmin)+vacuum
+        print(zmin,zmax, oldC, newC)
+        slab.cell[2,2]=newC
+        print("slab cell \n", slab.cell)
+        for i in range(slab.nat):
+            slab.atpos[i][2]=(vacuum/2.0+(slab.atpos[i][2]-zmin)*oldC)/newC
+
         print("slab cell \n", slab.cell)
 
         return slab
@@ -466,6 +497,6 @@ if __name__ == '__main__':
     prim=CELL.cell2supercell(c1,P)
     prim.print_poscar("./test/rh2.vasp")
 
-    #slab=c1.makeslab([1,1,0], layer=1)
-    #slab.print_poscar("./test/slab.vasp")
+    slab=c1.makeslab([1,1,0], layer=2)
+    slab.print_poscar("./test/slab.vasp")
 
