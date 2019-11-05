@@ -1,0 +1,47 @@
+&CONTROL
+    calculation='scf',
+    disk_io='low',
+    prefix='pwscf',
+    pseudo_dir='./',
+    outdir='./tmp',
+    verbosity='high'
+    tprnfor=.true.
+    tstress=.true.
+    forc_conv_thr=1.0d-5
+/
+&SYSTEM
+    ibrav= 6,
+    celldm(1)=8.9499237115
+    celldm(3)=0.676460325773
+    nat= 6, ntyp= 2,
+    occupations = 'smearing',
+    smearing = 'gauss',
+    degauss = 1.0d-9
+    ecutwfc = 50
+    ecutrho = 500,
+/
+&ELECTRONS
+    electron_maxstep = 500
+    conv_thr = 1.0d-10
+    mixing_mode = 'plain'
+    mixing_beta = 0.7d0
+    mixing_ndim = 8
+    diagonalization = 'david'
+/
+&IONS
+    ion_dynamics='bfgs'
+/
+&CELL
+/
+ATOMIC_SPECIES
+  Sn 118.710  Sn.pbe-dn-rrkjus_psl.1.0.0.UPF
+  O   15.999  O.pbe-n-rrkjus_psl.1.0.0.UPF
+K_POINTS {automatic}
+  4 4 6 0 0 0
+ATOMIC_POSITIONS (crystal)
+Sn       0.000000000   0.000000000   0.000000000
+Sn       0.500000000   0.500000000   0.500000000
+O        0.306138213   0.306138213   0.000000000
+O       -0.306138213  -0.306138213   0.000000000
+O        0.193861787   0.806138213   0.500000000
+O        0.806138213   0.193861787   0.500000000

@@ -1,0 +1,73 @@
+# CIF file 
+data_findsym-output
+_audit_creation_method FINDSYM
+
+_chemical_name_mineral 'M-carbon'
+_chemical_formula_sum 'C'
+
+loop_
+_publ_author_name
+ 'Q. Li'
+ 'Y. Ma'
+ 'A. R. Oganov'
+ 'H. Wang'
+ 'H. Wang'
+ 'Y. Xu'
+ 'T. Cui'
+ 'H.-K. Mao'
+ 'G. Zou'
+_journal_name_full_name
+;
+ Physical Review Letters
+;
+_journal_volume 102
+_journal_year 2009
+_journal_page_first 175506
+_journal_page_last 175506
+_publ_Section_title
+;
+ Superhard Monoclinic Polymorph of Carbon
+;
+
+_aflow_title 'M-carbon Structure'
+_aflow_proto 'A_mC16_12_4i'
+_aflow_params 'a,b/a,c/a,\beta,x_{1},z_{1},x_{2},z_{2},x_{3},z_{3},x_{4},z_{4}'
+_aflow_params_values '9.089,0.274617669711,0.451534822313,96.96,-0.0572,0.1206,0.4419,0.3467,0.7858,-0.0594,0.2715,0.4149'
+_aflow_Strukturbericht 'None'
+_aflow_Pearson 'mC16'
+
+_symmetry_space_group_name_H-M "C 1 2/m 1"
+_symmetry_Int_Tables_number 12
+ 
+_cell_length_a    9.08900
+_cell_length_b    2.49600
+_cell_length_c    4.10400
+_cell_angle_alpha 90.00000
+_cell_angle_beta  96.96000
+_cell_angle_gamma 90.00000
+ 
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 x,y,z
+2 -x,y,-z
+3 -x,-y,-z
+4 x,-y,z
+5 x+1/2,y+1/2,z
+6 -x+1/2,y+1/2,-z
+7 -x+1/2,-y+1/2,-z
+8 x+1/2,-y+1/2,z
+ 
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_symmetry_multiplicity
+_atom_site_Wyckoff_label
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+C1 C   4 i -0.05720 0.00000 0.12060  1.00000
+C2 C   4 i 0.44190  0.00000 0.34670  1.00000
+C3 C   4 i 0.78580  0.00000 -0.05940 1.00000
+C4 C   4 i 0.27150  0.00000 0.41490  1.00000
