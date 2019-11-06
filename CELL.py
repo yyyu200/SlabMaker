@@ -16,15 +16,6 @@ def ext_euclid(a, b):
          x, y = y, (x - (a // b) * y)
          return x, y, q
 
-def ext_gcd(a, b):
-    if b == 0:
-        return 1, 0
-    elif a % b == 0:
-        return 0, 1
-    else:
-        x, y = ext_gcd(b, a % b)
-        return y, x - y * (a // b)
-
 def parse_lines(key, lines):
     res=None
     for l in lines:
@@ -32,6 +23,9 @@ def parse_lines(key, lines):
             res=parse_str(key,l)
 
     return res
+
+def dist2(a,b): # TODO: a and b are fractional coordinates
+        return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2
 
 def parse_str(key, line): 
     # multiple key in a line must seperate by ',', not ';' or ' '
@@ -171,7 +165,7 @@ class CELL(object):
 
     @staticmethod
     def dist(a,b): # TODO: a and b are fractional coordinates
-        return np.linalg.norm(a-b)
+         return np.linalg.norm(a-b)
 
     def unique(self):
         n=self.nat
@@ -181,9 +175,15 @@ class CELL(object):
 
         for i in range(n):
             for j in range(i+1,n):
-                if CELL.dist(self.atpos[i],self.atpos[j])<self.close_thr:
-                    assert(self.attyp[i]==self.attyp[j])
-                    i_kind[j]=i_kind[i]
+                dd=self.atpos[i]-self.atpos[j]
+                if abs(dd[0])>self.close_thr:
+                    continue
+                if abs(dd[1])>self.close_thr:
+                    continue
+                if abs(dd[2])>self.close_thr:
+                    continue
+                i_kind[j]=i_kind[i]
+
         uniq=[]
         typ_of_uniq=[]
         for i in np.unique(i_kind):
@@ -194,7 +194,6 @@ class CELL(object):
         self.nat=len(uniq)
         self.atpos=np.array(uniq)
         self.attyp=np.array(typ_of_uniq)
-
         
         for i in range(self.ntyp):
             self.typ_num[i]=0
@@ -202,7 +201,7 @@ class CELL(object):
                 if self.attyp[j]==i:
                     self.typ_num[i]+=1
 
-    def tidy_up(self): # tanslate to [0-1), sort by z axis
+    def tidy_up(self): # tanslate to [0-1), sort by element
         for i in range(self.nat):
             for j in range(3):
                 tmp_f, tmp_i=np.modf(self.atpos[i][j]) # the fractional part , the interger part
@@ -221,8 +220,6 @@ class CELL(object):
         tmp=self.attyp[:].argsort(kind='mergesort')
         self.attyp=self.attyp[tmp]
         self.atpos=self.atpos[tmp]
-        #tmp=self.atpos[:,2].argsort(kind='mergesort')
-
 
     def print_poscar(self,fnam):
         '''
@@ -286,6 +283,17 @@ class CELL(object):
         self.attyp=np.concatenate((self.attyp, attyp), axis=0)
         self.nat+=1
 
+    def unique_append(self, atpos, attyp):
+        for i in range(self.nat):
+            d=atpos-self.atpos[i]
+            if abs(d[0])+abs(d[1])+abs(d[2])<3*self.close_thr:
+                return
+        attyp=np.array([attyp])
+        atpos=atpos.reshape(1,3)
+        self.atpos=np.concatenate((self.atpos, atpos), axis=0)
+        self.attyp=np.concatenate((self.attyp, attyp), axis=0)
+        self.nat+=1
+
     @staticmethod
     def is_inside(A, B, La,Ma,Na, Lb,Mb,Nb):
         ''' 
@@ -343,31 +351,30 @@ class CELL(object):
             trans[i]=np.array(Q*(np.mat(cell_i_frac).T)).flatten()
        
         La,Ma,Na=0,0,0
-        Lb,Mb,Nb=1,1,1
+        Lb,Mb,Nb=0,0,0
         while not CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb,Nb):
             La-=1;Ma-=1;Na-=1
             Lb+=1;Mb+=1;Nb+=1
 
         while CELL.is_inside(supercell,cell,La+1,Ma,Na,Lb,Mb,Nb):
             La+=1
-        while CELL.is_inside(supercell,cell,La,Ma+1,Na,Lb,Mb,Nb):
-            Ma+=1
-        while CELL.is_inside(supercell,cell,La,Ma,Na+1,Lb,Mb,Nb):
-            Na+=1
         while CELL.is_inside(supercell,cell,La,Ma,Na,Lb-1,Mb,Nb):
             Lb-=1
+        while CELL.is_inside(supercell,cell,La,Ma+1,Na,Lb,Mb,Nb):
+            Ma+=1
         while CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb-1,Nb):
             Mb-=1
+        while CELL.is_inside(supercell,cell,La,Ma,Na+1,Lb,Mb,Nb):
+            Na+=1
         while CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb,Nb-1):
             Nb-=1
-
-        #print(La,Ma,Na, Lb,Mb,Nb)
          
         for n in range(supercell.nat):
             for i in range(La,Lb+1):
                 for j in range(Ma,Mb+1):
                     for k in range(Na,Nb+1):
                         supercell.append(supercell.atpos[n]+i*trans[0]+j*trans[1]+k*trans[2], supercell.attyp[n])
+        #print(La,Ma,Na, Lb,Mb,Nb, supercell.nat)
 
         supercell.tidy_up()
         supercell.unique()
@@ -426,6 +433,11 @@ class CELL(object):
                           np.sqrt(norm(a2)**2 - (np.dot(a1, a2) / norm(a1))**2), 0],
                           [0, 0, norm(a3)]] )
 
+    def reduce_slab(self):
+        # find 2d minimum cell for the slab
+        for i in range(self.nat):
+            pass
+
     def makeslab(self, miller_index, length=-1.0, layer=-1, method="point-group", origin_shift=0.0, vacuum=15.0):
         '''
         self is unit-cell
@@ -466,36 +478,34 @@ class CELL(object):
       
         print("P = ",P) 
         slab=CELL.cell2supercell(self,P)
-        print("slab cell \n", slab.cell)
         slab.cell_redefine()
         zmax=np.max(slab.atpos[:,2])
         zmin=np.min(slab.atpos[:,2])
 
         oldC=np.linalg.norm(slab.cell[2])
         newC=oldC*(zmax-zmin)+vacuum
-        print(zmin,zmax, oldC, newC)
         slab.cell[2,2]=newC
-        print("slab cell \n", slab.cell)
         for i in range(slab.nat):
-            slab.atpos[i][2]=(vacuum/2.0+(slab.atpos[i][2]-zmin)*oldC)/newC
+            slab.atpos[i,2]=(vacuum/2.0+(slab.atpos[i,2]-zmin)*oldC)/newC
 
+        slab.reduce_slab()
         print("slab cell \n", slab.cell)
 
         return slab
 
 if __name__ == '__main__':
     c1=CELL("Al2O3.vasp")
-    prim=CELL.unit2prim(c1,5)
-    prim.print_poscar("rh.vasp")
+    #prim=CELL.unit2prim(c1,5)
+    #prim.print_poscar("rh.vasp")
 
-    P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
-    c2=CELL.cell2supercell(prim,P)
-    c2.print_poscar("./test/c2.vasp")
-    print(c2.get_volume(), prim.get_volume())
+    #P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
+    #c2=CELL.cell2supercell(prim,P)
+    #c2.print_poscar("./test/c2.vasp")
+    #print("volumes: ",c2.get_volume(), prim.get_volume())
 
-    P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)    
-    prim=CELL.cell2supercell(c1,P)
-    prim.print_poscar("./test/rh2.vasp")
+    #P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)    
+    #prim=CELL.cell2supercell(c1,P)
+    #prim.print_poscar("./test/rh2.vasp")
 
     slab=c1.makeslab([1,1,0], layer=2)
     slab.print_poscar("./test/slab.vasp")
