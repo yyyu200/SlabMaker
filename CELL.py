@@ -28,7 +28,7 @@ def dist2(a,b): # TODO: a and b are fractional coordinates
         return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2
 
 def parse_str(key, line): 
-    # multiple key in a line must seperate by ',', not ';' or ' '
+    # multiple key in a line must seperated by ',', not ';' nor ' ' as in QE native code
     findkey=re.search(key, line)
     if findkey:
         r1=line.split('!')[0].split(',')
@@ -38,6 +38,88 @@ def parse_str(key, line):
                 return s.split('=')[1]
     else:
         return None
+
+def find_common_min(vecs, vecs_frac):
+    #vecs: cartesian coords
+
+    nat=len(vecs)
+
+    # nv: number of inplane vec for each atom
+    nv=np.zeros([nat],dtype=np.int64)
+    nv[0]=vecs[0].shape[0]
+
+    is_common0=np.ones([nv[0]],dtype=np.int64)
+    for i in range(nat):
+        #print("vecs",i,vecs[i])
+        nv[i]=vecs[i].shape[0]
+        for k in range(nv[0]):
+            if is_common0[k]==0:
+                continue
+            for j in range(nv[i]):
+                if dist2(vecs[i][j], vecs[0][k])<CELL.close_thr:
+                    break
+                elif j==nv[i]-1:
+                    is_common0[k]=0
+                else:
+                    pass
+                   
+    com_vec=[]
+    com_vec_frac=[]
+    for i in range(nv[0]):
+        if is_common0[i]==1:
+            com_vec.append(vecs[0][i])
+            com_vec_frac.append(vecs_frac[0][i])
+
+    #print(com_vec)
+    N=len(com_vec)
+   
+    # generate areas of vector pairs
+    vol=np.zeros([N,N],dtype=np.float64)
+    tmp=np.zeros([3],dtype=np.float64)
+    for i in range(N):
+        for j in range(N):
+            tmp=np.cross(com_vec[i],com_vec[j])
+            vol[i,j]=np.sqrt(tmp[0]*tmp[0]+tmp[1]*tmp[1]+tmp[2]*tmp[2])
+    
+    # choose from candidates, most small: minvol
+    minvol=99999999.0
+    for i in range(N):
+        for j in range(N):
+            if vol[i,j]<minvol-CELL.close_thr and vol[i,j]>CELL.close_thr:
+                minvol=vol[i,j]
+   
+    # which pairs are minvol
+    cij=[]
+    for i in range(N):
+        for j in range(N):
+            if abs(vol[i,j]-minvol)<CELL.close_thr:
+                cij.append([i,j])
+
+    #  choose from most small, most closest to 90 degree
+    most_close_to_rect=89.9
+    mi=-1
+    mj=-1
+    for ij in cij:
+            tmpang=fan(com_vec[ij[0]],com_vec[ij[1]])
+            if abs(tmpang-90)< most_close_to_rect-0.01: # close thr for angle
+                most_close_to_rect=abs(tmpang-90)
+                mi=ij[0]
+                mj=ij[1]
+
+    #TODO:  exist some randomness in choice mi,mj, can be safely disregarded
+    #print(mi,mj, fan(com_vec[mi],com_vec[mj])) 
+
+    P=np.mat(np.eye(3,dtype=np.float64))
+    
+    P[0]=com_vec_frac[mi]
+    P[1]=com_vec_frac[mj]
+    P[2,2]=-1
+    print("P",P)
+    return P
+
+def fan(v1,v2):
+    c=np.dot(v1,v2)/np.sqrt(v1.dot(v1))/np.sqrt(v2.dot(v2))
+    return np.arccos(c)*180/np.pi
 
 class CELL(object):
     close_thr=1.0e-4
@@ -201,6 +283,11 @@ class CELL(object):
                 if self.attyp[j]==i:
                     self.typ_num[i]+=1
 
+    def at_sort(self): # sort by element type
+        tmp=self.attyp[:].argsort(kind='mergesort')
+        self.attyp=self.attyp[tmp]
+        self.atpos=self.atpos[tmp]
+
     def tidy_up(self): # tanslate to [0-1), sort by element
         for i in range(self.nat):
             for j in range(3):
@@ -216,11 +303,6 @@ class CELL(object):
 
         self.at_sort()
 
-    def at_sort(self): # sort by element type
-        tmp=self.attyp[:].argsort(kind='mergesort')
-        self.attyp=self.attyp[tmp]
-        self.atpos=self.atpos[tmp]
-
     def print_poscar(self,fnam):
         '''
         print to POSCAR
@@ -230,7 +312,7 @@ class CELL(object):
         fo.write("1.0\n")
         for i in range(3):
             for j in range(3):
-                fo.write(" %f" % self.cell[i,j])
+                fo.write(" %15.10f" % self.cell[i,j])
             fo.write("\n")
         for i in range(self.ntyp):
             fo.write(self.typ_name[i]+" ")
@@ -249,13 +331,6 @@ class CELL(object):
 
         fo.close()
     
-    def findfour():
-        pass    
-
-    def findprim():
-        findfour()
-        pass
-
     def get_volume(self):
         self.volume=np.dot(np.cross(self.cell[0], self.cell[1]),self.cell[2])
         assert self.volume>0.0
@@ -272,11 +347,15 @@ class CELL(object):
          
         return self.rec
 
+    def direct2cart(self, a):
+        b=np.matmul(self.cell, a)
+        return b
+
     def cart2direct(self, a):
         b=np.matmul(self.get_rec(), a)
         return b
 
-    def append(self, atpos, attyp):
+    def append(self, atpos, attyp, update_typ_num=False):# TODO: number of each typ (typ_num) not added
         atpos=atpos.reshape(1,3)
         attyp=np.array([attyp])
         self.atpos=np.concatenate((self.atpos, atpos), axis=0)
@@ -309,24 +388,28 @@ class CELL(object):
         P[2,2]=Nb-Na
         Brepeat=copy.deepcopy(B)
         Brepeat.cell=np.array((np.mat(B.cell).T*P).T)
+        
+        # fraction coords of A basis vectors in Brepeat basis
         Acell=np.zeros([3,3],dtype=np.float64)
         for i in range(3):
             Acell[i]=Brepeat.cart2direct(A.cell[i])
-            #print("$",Acell[i])
     
-        for i in range(8):
-            corner=np.array([0.0 if np.fabs(La)<CELL.close_thr else -1.0/La, 
-                             0.0 if np.fabs(Ma)<CELL.close_thr else -1.0/Ma, 
-                             0.0 if np.fabs(Na)<CELL.close_thr else -1.0/Na])
+        corner_o=np.array([0.0 if np.fabs(La)<CELL.close_thr else -La/(Lb-La), 
+                           0.0 if np.fabs(Ma)<CELL.close_thr else -Ma/(Mb-Ma), 
+                           0.0 if np.fabs(Na)<CELL.close_thr else -Na/(Nb-Na)])
+        
+        for i in range(8): # fraction coords of eight corners of A
+            corner=corner_o.copy()
             for j in range(3):
                 corner+=(i>>j)%2*Acell[j]
-            if (corner>1.0+CELL.close_thr).any() or ( corner<0.0-CELL.close_thr).any():
+            if (corner>1.0+CELL.close_thr).any() or (corner<0.0-CELL.close_thr).any():
                 return False
       
+        #print(La,Ma,Na,Lb,Mb,Nb,"T",A.cell, Brepeat.cell, Acell)
         return True 
 
     @staticmethod
-    def cell2supercell(cell, P):
+    def cell2supercell(cell, P, checkunique=True):
         '''
         use a cell to fill in new cell by translate of base vectors
         '''
@@ -355,6 +438,7 @@ class CELL(object):
         while not CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb,Nb):
             La-=1;Ma-=1;Na-=1
             Lb+=1;Mb+=1;Nb+=1
+        assert CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb,Nb)
 
         while CELL.is_inside(supercell,cell,La+1,Ma,Na,Lb,Mb,Nb):
             La+=1
@@ -368,16 +452,19 @@ class CELL(object):
             Na+=1
         while CELL.is_inside(supercell,cell,La,Ma,Na,Lb,Mb,Nb-1):
             Nb-=1
-         
-        for n in range(supercell.nat):
-            for i in range(La,Lb+1):
-                for j in range(Ma,Mb+1):
-                    for k in range(Na,Nb+1):
+        
+        N=supercell.nat
+        for n in range(N):
+            for i in range(La,Lb):
+                for j in range(Ma,Mb):
+                    for k in range(Na,Nb):
+                        #print(n,i,j,k)
                         supercell.append(supercell.atpos[n]+i*trans[0]+j*trans[1]+k*trans[2], supercell.attyp[n])
-        #print(La,Ma,Na, Lb,Mb,Nb, supercell.nat)
+        #print("final:",La,Ma,Na, Lb,Mb,Nb, supercell.nat)
 
         supercell.tidy_up()
-        supercell.unique()
+        if checkunique:
+            supercell.unique()
 
         return supercell
 
@@ -404,18 +491,18 @@ class CELL(object):
         
         primcell.cell=(np.mat(unitcell.cell).T*P).T
         primcell.cell=np.array(primcell.cell)
+        primcell.cell=np.array(primcell.cell)
         assert np.linalg.det(primcell.cell)>=0
         primcell.nat=unitcell.nat
         for i in range(primcell.nat):
             primcell.atpos[i]=np.array(Q*(np.mat(unitcell.atpos[i]).T)).flatten()
         primcell.tidy_up()
         primcell.unique()
-        # assert 变换之后填满了原胞，不需要继续填充
-
+        # assert transform fully covered the primcell, no need for filling
         return primcell
 
     def set_cell(self,cell):
-        self.cell=np.mat(cell)
+        self.cell=np.array(cell)
 
     def cell_redefine(self):
         '''Re-define unit cell to have the x-axis parallel with a surface vector and z perpendicular to the surface
@@ -433,10 +520,87 @@ class CELL(object):
                           np.sqrt(norm(a2)**2 - (np.dot(a1, a2) / norm(a1))**2), 0],
                           [0, 0, norm(a3)]] )
 
-    def reduce_slab(self):
+    def is_inlattice(self,i,by_s_tau):
+        tmp=self.atpos[i]+by_s_tau
+        for k in range(3):
+            tf,ti=np.modf(tmp[k])
+            if tf < 0.0- self.close_thr:
+                tf=tf+1.0
+            elif np.fabs(tf)<=self.close_thr or np.fabs(tf-1.0)<=self.close_thr:
+                tf=0.0
+            tmp[k]=tf
+
+        for k in range(self.nat):
+            if dist2(self.atpos[k],tmp)<self.close_thr and self.attyp[k]==self.attyp[i]:
+                return True
+
+        return False
+
+    def find_inplane(self,i,search_range=6):
+        # norm vector, after redefine, n_ is [0,0,c]
+        n_=np.cross(self.cell[0],self.cell[1])
+       
+        # find d in plane equation hx+ky+lz=d
+        d=[]
+        for k in range(self.nat):
+            d.append(np.dot(self.atpos[k].reshape(3,),n_.reshape(3,)))
+        
+        # ikind, index of atoms inplane with atom i
+        ikind=[]
+        for k in range(self.nat):
+            if k==i:
+                continue
+            if abs(d[i]-d[k])<self.close_thr and self.attyp[i]==self.attyp[k]:
+                tau=self.atpos[k]-self.atpos[i]
+                is_inplane_and_trans=True
+                for s in range(search_range):
+                    by_s_tau=0*tau
+                    if not self.is_inlattice(i,by_s_tau):
+                        is_inplane_and_trans=False
+                        break
+                if is_inplane_and_trans:
+                    ikind.append(k)
+
+        re=np.zeros([len(ikind)*9,3],dtype=np.float64)
+
+        for k in range(len(ikind)):
+            tmp=self.atpos[ikind[k]]-self.atpos[i]
+            re[k*9+0]=tmp
+            re[k*9+1]=tmp+np.array([1,0,0],dtype=np.float64)
+            re[k*9+2]=tmp+np.array([-1,0,0],dtype=np.float64)
+            re[k*9+3]=tmp+np.array([0,1,0],dtype=np.float64)
+            re[k*9+4]=tmp+np.array([0,-1,0],dtype=np.float64)
+            re[k*9+5]=tmp+np.array([1,1,0],dtype=np.float64)
+            re[k*9+6]=tmp+np.array([-1,1,0],dtype=np.float64)
+            re[k*9+7]=tmp+np.array([1,-1,0],dtype=np.float64)
+            re[k*9+8]=tmp+np.array([-1,-1,0],dtype=np.float64)
+
+        lat_neighbor=np.array([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],
+                    [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0]],dtype=np.float64)
+        re=np.concatenate((re,lat_neighbor),axis=0)
+        
+        re2=np.zeros([re.shape[0],re.shape[1]],dtype=np.float64)
+        for k in range(re.shape[0]):
+            re2[k]=self.direct2cart(re[k])
+        
+        #print("re",re.shape) 
+        return re2, re
+
+    @staticmethod
+    def reduce_slab(slab):
         # find 2d minimum cell for the slab
-        for i in range(self.nat):
-            pass
+        vecs=[]
+        vecs_frac=[]
+        for i in range(slab.nat):
+            tmp_direct, tmp_frac=slab.find_inplane(i)
+            vecs.append(tmp_direct)
+            vecs_frac.append(tmp_frac)
+
+        P=find_common_min(vecs, vecs_frac)
+
+        reduced=CELL.cell2supercell(slab,P)
+
+        return reduced
 
     def makeslab(self, miller_index, length=-1.0, layer=-1, method="point-group", origin_shift=0.0, vacuum=15.0):
         '''
@@ -488,25 +652,30 @@ class CELL(object):
         for i in range(slab.nat):
             slab.atpos[i,2]=(vacuum/2.0+(slab.atpos[i,2]-zmin)*oldC)/newC
 
-        slab.reduce_slab()
-        print("slab cell \n", slab.cell)
+        reduced_slab=CELL.reduce_slab(slab)
+        print("reduced slab cell \n", reduced_slab.cell)
 
-        return slab
+        return reduced_slab
 
 if __name__ == '__main__':
-    c1=CELL("Al2O3.vasp")
-    #prim=CELL.unit2prim(c1,5)
-    #prim.print_poscar("rh.vasp")
+    import os
 
-    #P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
-    #c2=CELL.cell2supercell(prim,P)
-    #c2.print_poscar("./test/c2.vasp")
+    if not os.path.exists("tmp"):
+        os.makedirs("tmp")
+
+    c1=CELL("Al2O3.vasp")
+    prim=CELL.unit2prim(c1,5)
+    prim.print_poscar("rh.vasp")
+
+    P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
+    c2=CELL.cell2supercell(prim,P)
+    c2.print_poscar("./tmp/c2.vasp")
     #print("volumes: ",c2.get_volume(), prim.get_volume())
 
     #P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)    
     #prim=CELL.cell2supercell(c1,P)
-    #prim.print_poscar("./test/rh2.vasp")
+    #prim.print_poscar("./tmp/rh2.vasp")
 
-    slab=c1.makeslab([1,1,0], layer=2)
-    slab.print_poscar("./test/slab.vasp")
+    #slab=c1.makeslab([1,1,0], layer=2)
+    #slab.print_poscar("./tmp/slab.vasp")
 

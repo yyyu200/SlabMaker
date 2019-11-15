@@ -10,5 +10,5 @@ unitcell=CELL("sc.vasp")
 miller_index=[1,1,1]
 slab=unitcell.makeslab(miller_index, layer=2, method="brute-force")
 
-slab.print_poscar("./test/slab.vasp")
+slab.print_poscar("./tmp/slab.vasp")
 
