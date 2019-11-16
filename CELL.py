@@ -70,7 +70,7 @@ def find_common_min(vecs, vecs_frac):
             com_vec.append(vecs[0][i])
             com_vec_frac.append(vecs_frac[0][i])
 
-    #print(com_vec)
+    #print(com_vec_frac)
     N=len(com_vec)
    
     # generate areas of vector pairs
@@ -81,18 +81,18 @@ def find_common_min(vecs, vecs_frac):
             tmp=np.cross(com_vec[i],com_vec[j])
             vol[i,j]=np.sqrt(tmp[0]*tmp[0]+tmp[1]*tmp[1]+tmp[2]*tmp[2])
     
-    # choose from candidates, most small: minvol
-    minvol=99999999.0
+    # choose from candidates, most small: minarea
+    minarea=99999999.0
     for i in range(N):
         for j in range(N):
-            if vol[i,j]<minvol-CELL.close_thr and vol[i,j]>CELL.close_thr:
-                minvol=vol[i,j]
+            if vol[i,j]<minarea-CELL.close_thr and vol[i,j]>CELL.close_thr:
+                minarea=vol[i,j]
    
-    # which pairs are minvol
+    # which pairs are minarea
     cij=[]
     for i in range(N):
         for j in range(N):
-            if abs(vol[i,j]-minvol)<CELL.close_thr:
+            if abs(vol[i,j]-minarea)<CELL.close_thr:
                 cij.append([i,j])
 
     #  choose from most small, most closest to 90 degree
@@ -107,14 +107,20 @@ def find_common_min(vecs, vecs_frac):
                 mj=ij[1]
 
     #TODO:  exist some randomness in choice mi,mj, can be safely disregarded
-    #print(mi,mj, fan(com_vec[mi],com_vec[mj])) 
+    print("inplane vectors: ", "\nu:\n",com_vec_frac[mi], "\nv:\n", com_vec_frac[mj],"\nangle:\n", fan(com_vec[mi],com_vec[mj])) 
 
     P=np.mat(np.eye(3,dtype=np.float64))
     
     P[0]=com_vec_frac[mi]
     P[1]=com_vec_frac[mj]
-    P[2,2]=-1
-    print("P",P)
+
+    # keep the right-hand system
+    if np.cross(com_vec[mi],com_vec[mj])[2]<-CELL.close_thr:
+        P[2,2]=-1
+    else:
+        P[2,2]=1
+
+    print("P2 = ",P)
     return P
 
 def fan(v1,v2):
@@ -348,7 +354,7 @@ class CELL(object):
         return self.rec
 
     def direct2cart(self, a):
-        b=np.matmul(self.cell, a)
+        b=np.matmul(self.cell.T, a)
         return b
 
     def cart2direct(self, a):
@@ -554,7 +560,7 @@ class CELL(object):
                 tau=self.atpos[k]-self.atpos[i]
                 is_inplane_and_trans=True
                 for s in range(search_range):
-                    by_s_tau=0*tau
+                    by_s_tau=s*tau
                     if not self.is_inlattice(i,by_s_tau):
                         is_inplane_and_trans=False
                         break
@@ -592,8 +598,8 @@ class CELL(object):
         vecs=[]
         vecs_frac=[]
         for i in range(slab.nat):
-            tmp_direct, tmp_frac=slab.find_inplane(i)
-            vecs.append(tmp_direct)
+            tmp_cart, tmp_frac=slab.find_inplane(i)
+            vecs.append(tmp_cart)
             vecs_frac.append(tmp_frac)
 
         P=find_common_min(vecs, vecs_frac)
@@ -640,7 +646,7 @@ class CELL(object):
             P[2]*=layer
             P=P.T
       
-        print("P = ",P) 
+        print("P1 = ",P) 
         slab=CELL.cell2supercell(self,P)
         slab.cell_redefine()
         zmax=np.max(slab.atpos[:,2])
@@ -663,19 +669,8 @@ if __name__ == '__main__':
     if not os.path.exists("tmp"):
         os.makedirs("tmp")
 
-    c1=CELL("Al2O3.vasp")
-    prim=CELL.unit2prim(c1,5)
-    prim.print_poscar("rh.vasp")
+    unit=CELL("Al2O3.vasp")
 
-    P=np.mat([[1,0,1],[-1,1,1],[0,-1,1]],dtype=np.float64)
-    c2=CELL.cell2supercell(prim,P)
-    c2.print_poscar("./tmp/c2.vasp")
-    #print("volumes: ",c2.get_volume(), prim.get_volume())
-
-    #P=np.mat([[2/3.0,-1/3.0,-1/3.0],[1/3.0,1/3.0,-2/3.0],[1/3.0,1/3.0,1/3.0]],dtype=np.float64)    
-    #prim=CELL.cell2supercell(c1,P)
-    #prim.print_poscar("./tmp/rh2.vasp")
-
-    #slab=c1.makeslab([1,1,0], layer=2)
-    #slab.print_poscar("./tmp/slab.vasp")
+    slab=unit.makeslab([1,1,0], layer=2)
+    slab.print_poscar("./tmp/slab.vasp")
 
