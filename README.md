@@ -57,3 +57,7 @@ Direct
 Dependences:
 
 * Numpy >= 1.15
+
+# An introduction of the principles behind.
+
+https://yyyu200.github.io/DFTbook/blogs/2019/04/07/TransCell/
