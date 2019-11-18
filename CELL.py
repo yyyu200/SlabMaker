@@ -111,8 +111,12 @@ def find_common_min(vecs, vecs_frac):
 
     P=np.mat(np.eye(3,dtype=np.float64))
     
-    P[0]=com_vec_frac[mi]
-    P[1]=com_vec_frac[mj]
+    P[0,0]=com_vec_frac[mi][0]
+    P[1,0]=com_vec_frac[mi][1]
+    P[2,0]=com_vec_frac[mi][2]
+    P[0,1]=com_vec_frac[mj][0]
+    P[1,1]=com_vec_frac[mj][1]
+    P[2,1]=com_vec_frac[mj][2]
 
     # keep the right-hand system
     if np.cross(com_vec[mi],com_vec[mj])[2]<-CELL.close_thr:
@@ -511,20 +515,26 @@ class CELL(object):
         self.cell=np.array(cell)
 
     def cell_redefine(self):
-        '''Re-define unit cell to have the x-axis parallel with a surface vector and z perpendicular to the surface
-         
-        lattice: Atoms object
-            The cell is rotated.
+        '''Re-define slab cell to have the x-axis parallel with a surface vector 
+           and z perpendicular to the surface. Only keep the inplane periodicity.
+           First c is projected along z, fractional coords are changed in tis step.
+           Then the cell is rotated.
         '''
         from numpy.linalg import norm
         a1, a2, a3 = self.cell
+
+        carts=np.zeros([self.nat,3],dtype=np.float64)
+        for i in range(self.nat):
+            carts[i]=self.direct2cart(self.atpos[i])
+        
         self.set_cell([a1, a2, np.cross(a1, a2) * np.dot(a3, np.cross(a1, a2)) /norm(np.cross(a1, a2))**2])
+        for i in range(self.nat):
+            self.atpos[i]=self.cart2direct(carts[i])
     
         a1, a2, a3 = np.array(self.cell)
         self.set_cell([[norm(a1), 0, 0], 
-                          [np.dot(a1, a2) / norm(a1), 
-                          np.sqrt(norm(a2)**2 - (np.dot(a1, a2) / norm(a1))**2), 0],
-                          [0, 0, norm(a3)]] )
+            [np.dot(a1, a2) / norm(a1), np.sqrt(norm(a2)**2 - (np.dot(a1, a2) / norm(a1))**2), 0],
+            [0, 0, norm(a3)]] )
 
     def is_inlattice(self,i,by_s_tau):
         tmp=self.atpos[i]+by_s_tau
@@ -660,6 +670,7 @@ class CELL(object):
 
         reduced_slab=CELL.reduce_slab(slab)
         print("reduced slab cell \n", reduced_slab.cell)
+        print(fan(reduced_slab.cell[0],reduced_slab.cell[1]))
 
         return reduced_slab
 
