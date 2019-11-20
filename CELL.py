@@ -24,7 +24,7 @@ def parse_lines(key, lines):
 
     return res
 
-def dist2(a,b): # TODO: a and b are fractional coordinates
+def dist2(a,b=[0,0,0]): # TODO: a and b are fractional coordinates
         return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2
 
 def parse_str(key, line): 
@@ -50,7 +50,7 @@ def find_common_min(vecs, vecs_frac):
 
     is_common0=np.ones([nv[0]],dtype=np.int64)
     for i in range(nat):
-        #print("vecs",i,vecs[i])
+        #print("vecs_frac",i,vecs_frac[i])
         nv[i]=vecs[i].shape[0]
         for k in range(nv[0]):
             if is_common0[k]==0:
@@ -70,8 +70,8 @@ def find_common_min(vecs, vecs_frac):
             com_vec.append(vecs[0][i])
             com_vec_frac.append(vecs_frac[0][i])
 
-    #print(com_vec_frac)
     N=len(com_vec)
+    #print(N, " com_vec_frac: ",com_vec_frac)
    
     # generate areas of vector pairs
     vol=np.zeros([N,N],dtype=np.float64)
@@ -530,7 +530,8 @@ class CELL(object):
         self.set_cell([a1, a2, np.cross(a1, a2) * np.dot(a3, np.cross(a1, a2)) /norm(np.cross(a1, a2))**2])
         for i in range(self.nat):
             self.atpos[i]=self.cart2direct(carts[i])
-    
+        self.tidy_up()
+
         a1, a2, a3 = np.array(self.cell)
         self.set_cell([[norm(a1), 0, 0], 
             [np.dot(a1, a2) / norm(a1), np.sqrt(norm(a2)**2 - (np.dot(a1, a2) / norm(a1))**2), 0],
@@ -547,7 +548,7 @@ class CELL(object):
             tmp[k]=tf
 
         for k in range(self.nat):
-            if dist2(self.atpos[k],tmp)<self.close_thr and self.attyp[k]==self.attyp[i]:
+            if dist2(self.atpos[k],tmp)<=self.close_thr and self.attyp[k]==self.attyp[i]:
                 return True
 
         return False
@@ -566,33 +567,36 @@ class CELL(object):
         for k in range(self.nat):
             if k==i:
                 continue
-            if abs(d[i]-d[k])<self.close_thr and self.attyp[i]==self.attyp[k]:
+            if abs(d[k]-d[i])<self.close_thr and self.attyp[i]==self.attyp[k]:
                 tau=self.atpos[k]-self.atpos[i]
+                #print(i,k,tau)
                 is_inplane_and_trans=True
-                for s in range(search_range):
+                for s in range(1,search_range):
                     by_s_tau=s*tau
                     if not self.is_inlattice(i,by_s_tau):
                         is_inplane_and_trans=False
+                        #print(i,by_s_tau,s)
                         break
                 if is_inplane_and_trans:
                     ikind.append(k)
 
-        re=np.zeros([len(ikind)*9,3],dtype=np.float64)
+        iin=len(ikind) # number of inplane atoms with the i-th atom
+        ir=1 # neighbor -ir, -ir+1,..., ir-1, ir
+        inplane_range=2*ir+1 
+        Nin=inplane_range**2
+        re=np.zeros([iin*Nin,3],dtype=np.float64)
 
-        for k in range(len(ikind)):
+        lat_neighbor=np.zeros([Nin,3],dtype=np.float64)
+        for il in range(Nin):
+            rx=il//inplane_range-ir
+            ry=il%inplane_range-ir
+            lat_neighbor[il]=np.array([rx,ry,0],dtype=np.float64)
+        
+        for k in range(iin):
             tmp=self.atpos[ikind[k]]-self.atpos[i]
-            re[k*9+0]=tmp
-            re[k*9+1]=tmp+np.array([1,0,0],dtype=np.float64)
-            re[k*9+2]=tmp+np.array([-1,0,0],dtype=np.float64)
-            re[k*9+3]=tmp+np.array([0,1,0],dtype=np.float64)
-            re[k*9+4]=tmp+np.array([0,-1,0],dtype=np.float64)
-            re[k*9+5]=tmp+np.array([1,1,0],dtype=np.float64)
-            re[k*9+6]=tmp+np.array([-1,1,0],dtype=np.float64)
-            re[k*9+7]=tmp+np.array([1,-1,0],dtype=np.float64)
-            re[k*9+8]=tmp+np.array([-1,-1,0],dtype=np.float64)
+            for il in range(Nin):
+                re[k*Nin+il]=tmp+lat_neighbor[il]
 
-        lat_neighbor=np.array([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],
-                    [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0]],dtype=np.float64)
         re=np.concatenate((re,lat_neighbor),axis=0)
         
         re2=np.zeros([re.shape[0],re.shape[1]],dtype=np.float64)
@@ -603,8 +607,8 @@ class CELL(object):
         return re2, re
 
     @staticmethod
-    def reduce_slab(slab):
-        # find 2d minimum cell for the slab
+    def reduce_slab(slab,axis='c'):
+        # find 2d minimum cell for the slab, assume c is surface norm
         vecs=[]
         vecs_frac=[]
         for i in range(slab.nat):
@@ -670,7 +674,10 @@ class CELL(object):
 
         reduced_slab=CELL.reduce_slab(slab)
         print("reduced slab cell \n", reduced_slab.cell)
-        print(fan(reduced_slab.cell[0],reduced_slab.cell[1]))
+        ang_B=fan(reduced_slab.cell[0],reduced_slab.cell[1])
+        edg_a=np.sqrt(dist2(reduced_slab.cell[0]))
+        edg_c=np.sqrt(dist2(reduced_slab.cell[1]))
+        print("reduced slab cell area: ", np.sin(ang_B)*edg_a*edg_c, " Ang^2")
 
         return reduced_slab
 
@@ -682,6 +689,6 @@ if __name__ == '__main__':
 
     unit=CELL("Al2O3.vasp")
 
-    slab=unit.makeslab([1,1,0], layer=2)
+    slab=unit.makeslab([1,1,0], layer=1)
     slab.print_poscar("./tmp/slab.vasp")
 
