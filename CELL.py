@@ -675,9 +675,9 @@ class CELL(object):
         reduced_slab=CELL.reduce_slab(slab)
         print("reduced slab cell \n", reduced_slab.cell)
         ang_B=fan(reduced_slab.cell[0],reduced_slab.cell[1])
-        edg_a=np.sqrt(dist2(reduced_slab.cell[0]))
-        edg_c=np.sqrt(dist2(reduced_slab.cell[1]))
-        print("reduced slab cell area: ", np.sin(ang_B)*edg_a*edg_c, " Ang^2")
+        edg_a=np.linalg.norm(reduced_slab.cell[0])
+        edg_c=np.linalg.norm(reduced_slab.cell[1])
+        print("reduced slab cell area: ", np.sin(ang_B/180*np.pi)*edg_a*edg_c, " Ang^2")
 
         return reduced_slab
 
