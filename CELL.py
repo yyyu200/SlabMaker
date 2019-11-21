@@ -557,7 +557,7 @@ class CELL(object):
         # norm vector, after redefine, n_ is [0,0,c]
         n_=np.cross(self.cell[0],self.cell[1])
        
-        # find d in plane equation hx+ky+lz=d
+        # find d in plane-equation:hx+ky+lz=d
         d=[]
         for k in range(self.nat):
             d.append(np.dot(self.atpos[k].reshape(3,),n_.reshape(3,)))
@@ -622,7 +622,7 @@ class CELL(object):
 
         return reduced
 
-    def makeslab(self, miller_index, length=-1.0, layer=-1, method="point-group", origin_shift=0.0, vacuum=15.0):
+    def makeslab(self, miller_index, length=-1.0, layer=-1, method="bf", origin_shift=0.0, vacuum=15.0):
         '''
         self is unit-cell
         '''
