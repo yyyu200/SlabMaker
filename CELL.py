@@ -637,7 +637,7 @@ class CELL(object):
 
         if h==0 and k==0 and l==0:
             print("miller_index cannot be 0 0 0!")
-            raise Exception
+            raise AssertionError
         elif h==0 and k==0:
             P[2,2]=layer
         elif k==0 and l==0: # slab not along z
@@ -684,7 +684,7 @@ class CELL(object):
         print("reduced slab No. of atoms: ", reduced_slab.nat)
         print("slab and vacuum length: ", newC-vacuum, vacuum, "Ang.")
         print("inplane edge and angle: ", edg_a, edg_c, ang_B," degree.")
-        print("reduced slab cell area: ", np.sin(ang_B/180*np.pi)*edg_a*edg_c, " Ang^2.")
+        print("!reduced slab cell area: ", np.sin(ang_B/180*np.pi)*edg_a*edg_c, " Ang^2.")
 
         return reduced_slab
 

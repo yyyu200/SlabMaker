@@ -1,11 +1,15 @@
 # SlabMaker
 
-Consist of two part:
 1. TransCell
 Transformation between primitive cell and unit cell.
 
 2. SlabMaker
 Build slab models for crystal surfaces.
+
+3. SuperCell
+Build supercell given the transform matrix P.
+
+4. PW input file convert to POSCAR format.
 
 ## Build primitive cell from unit cell
 
