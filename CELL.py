@@ -107,7 +107,7 @@ def find_common_min(vecs, vecs_frac):
                 mj=ij[1]
 
     #TODO:  exist some randomness in choice mi,mj, can be safely disregarded
-    print("inplane vectors: ", "\nu:\n",com_vec_frac[mi], "\nv:\n", com_vec_frac[mj],"\nangle:\n", fan(com_vec[mi],com_vec[mj])) 
+    #print("inplane vectors: ", "\nu:\n",com_vec_frac[mi], "\nv:\n", com_vec_frac[mj]) 
 
     P=np.mat(np.eye(3,dtype=np.float64))
     
@@ -423,7 +423,7 @@ class CELL(object):
         '''
         use a cell to fill in new cell by translate of base vectors
         '''
-        
+       
         supercell=copy.deepcopy(cell)
         supercell.cell=((np.mat(cell.cell).T)*P).T
         supercell.cell=np.array(supercell.cell) # mat to array
@@ -660,6 +660,10 @@ class CELL(object):
             P[2]*=layer
             P=P.T
       
+        if np.linalg.det(P)<0:
+            P[0,2]*=-1
+            P[1,2]*=-1
+            P[2,2]*=-1
         print("P1 = ",P) 
         slab=CELL.cell2supercell(self,P)
         slab.cell_redefine()
@@ -677,7 +681,10 @@ class CELL(object):
         ang_B=fan(reduced_slab.cell[0],reduced_slab.cell[1])
         edg_a=np.linalg.norm(reduced_slab.cell[0])
         edg_c=np.linalg.norm(reduced_slab.cell[1])
-        print("reduced slab cell area: ", np.sin(ang_B/180*np.pi)*edg_a*edg_c, " Ang^2")
+        print("reduced slab No. of atoms: ", reduced_slab.nat)
+        print("slab and vacuum length: ", newC-vacuum, vacuum, "Ang.")
+        print("inplane edge and angle: ", edg_a, edg_c, ang_B," degree.")
+        print("reduced slab cell area: ", np.sin(ang_B/180*np.pi)*edg_a*edg_c, " Ang^2.")
 
         return reduced_slab
 
