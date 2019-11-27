@@ -23,7 +23,7 @@ c1=CELL("mC.vasp")
 prim=CELL.unit2prim(c1,13)
 prim.print_poscar("prim.vasp")
 
-# test tetragonal P
-
+# test tetragonal P and QE format
 sno=CELL('sno.inp',fmt='QE')
-print(sno.cell)
+sno.print_poscar("sno.vasp")
+

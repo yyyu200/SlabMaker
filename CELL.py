@@ -141,7 +141,7 @@ class CELL(object):
             fi=open(fnam)
             ll=fi.readlines() 
             self.system=ll[0]
-            self.alat=float(ll[1])
+            self.alat=float(ll[1]) # Angstrom as unit
             self.cell=np.zeros([3,3])
             for i in range(3):
                 for j in range(3):
@@ -203,15 +203,19 @@ class CELL(object):
                     if cd1:
                         cd1=np.float64(cd1)
                         self.cell=self.cell*cd1*0.52917720859
+                        self.alat=cd1*0.52917720859
                     elif A:
                         A=np.float64(A)
                         self.cell=self.cell*A
+                        self.alat=A
                     else:
                         raise Exception
                 elif is_bohr:
                     self.cell=self.cell*0.52917720859
+                    self.alat=np.sqrt(dist2(self.cell[0]))
                 elif is_angstrom:
                     self.cell=self.cell
+                    self.alat=np.sqrt(dist2(self.cell[0]))
                         
             elif ibrav==1: # sc
                 cd1=parse_lines("celldm\(1\)",ll)
@@ -248,6 +252,66 @@ class CELL(object):
             else:
                 # other ibrav
                 raise NotImplementedError
+
+            if ibrav!=0:
+                self.alat=cd1*0.52917720859
+         
+            # parse atomic type names
+            i=0
+            self.typ_name=[]
+            self.typ_num=np.zeros([self.ntyp], dtype=np.int32)
+            for l in ll:
+                is_line_atspecies=re.search("ATOMIC_SPECIES",l)
+                i+=1
+                if is_line_atspecies:
+                    for j in range(self.ntyp):
+                        tmp=ll[j+i].split()[0]
+                        self.typ_name.append(tmp)
+
+            # parse atomic positions
+            i=0
+            self.atpos=np.zeros([self.nat,3], dtype=np.float64)
+            self.attyp=np.zeros([self.nat], dtype=np.int32)
+            for l in ll:
+                is_line_atpos=re.search("ATOMIC_POSITIONS",l)
+                i+=1
+                if is_line_atpos: # do not support Capital, such as 'ALAT'
+                    is_atpos_alat=re.search('alat',l)
+                    is_atpos_angstrom=re.search('angstrom',l)
+                    is_atpos_bohr=re.search('bohr',l)
+                    is_atpos_crystal_sg=re.search('crystal_sg',l)
+                    if not is_atpos_crystal_sg:
+                        is_atpos_crystal=re.search('crystal',l)
+
+                    assert is_atpos_alat or is_atpos_angstrom or is_atpos_bohr or is_atpos_crystal_sg or is_atpos_crystal
+
+                    for j in range(self.nat):
+                        tmp_element_name=ll[j+i].split()[0]
+                        tmp_pos0=np.float64(ll[j+i].split()[1])
+                        tmp_pos1=np.float64(ll[j+i].split()[2])
+                        tmp_pos2=np.float64(ll[j+i].split()[3])
+                    
+                        self.attyp[j]=self.element_name2attyp(tmp_element_name)
+                        self.typ_num[self.attyp[j]]+=1
+                        if is_atpos_crystal:
+                            self.atpos[j,0]=tmp_pos0
+                            self.atpos[j,1]=tmp_pos1
+                            self.atpos[j,2]=tmp_pos2
+                        elif is_atpos_crystal_sg:
+                            raise NotImplementedError
+                        else:
+                            tmp_c=np.array([tmp_pos0, tmp_pos1, tmp_pos2], dtype=np.float64)
+                            if is_atpos_alat:
+                                self.atpos[j]=self.cart2direct(tmp_c*self.alat)
+                            elif is_atpos_angstrom:
+                                self.atpos[j]=self.cart2direct(tmp_c)
+                            elif is_atpos_bohr:
+                                self.atpos[j]=self.cart2direct(tmp_c*0.52917720859)
+
+                    break
+                else:
+                    continue
+
         else:
             # other code? maybe Abinit, castep
             raise NotImplementedError
@@ -356,6 +420,11 @@ class CELL(object):
             self.rec[i]=np.cross(self.cell[(i+1)%3], self.cell[(i+2)%3])/self.volume;
          
         return self.rec
+
+    def element_name2attyp(self, element_name):
+        for i in range(self.ntyp):
+            if element_name == self.typ_name[i]:
+                return i
 
     def direct2cart(self, a):
         b=np.matmul(self.cell.T, a)
