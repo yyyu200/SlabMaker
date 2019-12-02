@@ -1,12 +1,15 @@
 # SlabMaker
 
 1. TransCell
+
 Transformation between primitive cell and unit cell.
 
 2. SlabMaker
+
 Build slab models for crystal surfaces.
 
 3. SuperCell
+
 Build supercell given the transform matrix P.
 
 4. PW input file convert to POSCAR format.
@@ -38,7 +41,7 @@ Direct
 save above as file 'sc.vasp'. Run
 
 ```python
-from CELL import CELL
+from build import CELL
 
 sc=CELL("sc.vasp")
 fcc=CELL.unit2prim(sc,2)
@@ -63,7 +66,7 @@ Direct
 ## Build slab
 
 ```python
-from CELL import CELL
+from build import CELL
 
 unitcell=CELL("sc.vasp")
 
@@ -117,7 +120,7 @@ Direct
 
 ```python
 import numpy as np
-from CELL import CELL
+from build import CELL
 
 unitcell=CELL("sc.vasp")
 P=np.mat([[2,0,0],[0,2,0],[0,0,2]],dtype=np.float64)
@@ -132,3 +135,4 @@ supercell.print_poscar("./super.vasp")
 # An introduction of the principles behind.
 
 https://yyyu200.github.io/DFTbook/blogs/2019/04/07/TransCell/
+
