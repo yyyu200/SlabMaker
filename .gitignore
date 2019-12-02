@@ -1,4 +1,6 @@
 test/*
+examples/results
+
 # Prerequisites
 *.pyc
 *.d
