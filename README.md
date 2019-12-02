@@ -128,6 +128,25 @@ supercell=CELL.cell2supercell(unitcell,P)
 supercell.print_poscar("./super.vasp")
 ```
 
+## Install
+
+To install as a python library instead of copy build to every work directory. Copy the SlabMaker folder to $HOME/local/lib or wherever you want, add to the PYTHONPATH by write to the ~/.bashrc:
+
+```bash
+export PYTHONPATH=$HOME/local/lib:$PYTHONPATH
+```
+
+then it can be imported as:
+```
+from SlabMaker.build import CELL
+```
+
+run the test.py in examples directory,
+
+```bash
+python test.py
+```
+
 ## Dependences:
 
 * Numpy >= 1.15

@@ -24,9 +24,6 @@ def parse_lines(key, lines):
 
     return res
 
-def dist2(a,b=[0,0,0]): # TODO: a and b are fractional coordinates
-        return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2
-
 def parse_str(key, line): 
     # multiple key in a line must seperated by ',', not ';' nor ' ' as in QE native code
     findkey=re.search(key, line)
@@ -42,6 +39,9 @@ def parse_str(key, line):
 def fan(v1,v2):
     c=np.dot(v1,v2)/np.sqrt(v1.dot(v1))/np.sqrt(v2.dot(v2))
     return np.arccos(c)*180/np.pi
+
+def dist2(a,b=[0,0,0]): # TODO: a and b are fractional coordinates
+        return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2
 
 def mixproduct(a,b,c):
     return np.cross(a,b).dot(c)
