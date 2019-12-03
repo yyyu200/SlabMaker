@@ -43,7 +43,7 @@ save above as file 'sc.vasp'. Run
 ```python
 from build import CELL
 
-sc=CELL("sc.vasp")
+sc=CELL("examples/SiC.vasp")
 fcc=CELL.unit2prim(sc,2)
 fcc.print_poscar("fcc.vasp")
 ```
@@ -68,11 +68,9 @@ Direct
 ```python
 from build import CELL
 
-unitcell=CELL("sc.vasp")
-
+unitcell=CELL("examples/SiC.vasp")
 miller_index=[1,1,1]
 slab=unitcell.makeslab(miller_index, layer=1, vacuum=15.0)
-
 slab.print_poscar("./slab.vasp")
 ```
 
@@ -81,39 +79,35 @@ will get
 P1 =  [[ 1.  0.  1.]
  [ 0.  1.  1.]
  [-1. -1.  1.]]
-inplane vectors:
-u:
- [ 0.  -0.5  0. ]
-v:
- [-0.5  0.   0. ]
-angle:
- 59.99999999999999
-P2 =  [[ 0.  -0.5  0. ]
- [-0.5  0.   0. ]
- [ 0.   0.  -1. ]]
+P2 =  [[ 0.5 -0.5  0. ]
+ [ 0.   0.5  0. ]
+ [ 0.   0.   1. ]]
 reduced slab cell
- [[ -1.53725016  -2.66259538   0.        ]
- [ -3.07450032   0.           0.        ]
- [  0.           0.         -21.90337725]]
-reduced slab cell area:  8.186150349361137  Ang^2
+ [[ 3.07450032  0.          0.        ]
+ [-1.53725016  2.66259538  0.        ]
+ [ 0.          0.         21.90337725]]
+reduced slab No. of atoms:  6
+slab and vacuum length:  6.903377247450933 15.0 Ang.
+inplane edge and angle:  3.074500319671605 3.074500319671605  Ang.  120.00000000000001  degree.
+reduced slab cell area:  8.186150349361135  Ang^2.
 ```
 and also the slab.vasp file:
 
 ```
 system: Si C
 1.0
-   -1.5372501598   -2.6625953808    0.0000000000
-   -3.0745003197    0.0000000000    0.0000000000
-    0.0000000000    0.0000000000  -21.9033772475
+    3.0745003197    0.0000000000    0.0000000000
+   -1.5372501598    2.6625953808    0.0000000000
+    0.0000000000    0.0000000000   21.9033772475
 Si C
 3 3
 Direct
- 0.000000000000 0.000000000000 0.657587050834
- 0.666666666667 0.666666666667 0.542978286591
- 0.333333333333 0.333333333333 0.428369522348
- 0.000000000000 0.000000000000 0.571630477652
- 0.666666666667 0.666666666667 0.457021713409
- 0.333333333333 0.333333333333 0.342412949166
+ 0.000000000000 0.000000000000 0.342412949166
+ 0.666666666667 0.333333333333 0.457021713409
+ 0.333333333333 0.666666666667 0.571630477652
+ 0.000000000000 0.000000000000 0.428369522348
+ 0.666666666667 0.333333333333 0.542978286591
+ 0.333333333333 0.666666666667 0.657587050834
 ```
 
 ## Build supercell:
@@ -122,7 +116,7 @@ Direct
 import numpy as np
 from build import CELL
 
-unitcell=CELL("sc.vasp")
+unitcell=CELL("examples/SiC.vasp")
 P=np.mat([[2,0,0],[0,2,0],[0,0,2]],dtype=np.float64)
 supercell=CELL.cell2supercell(unitcell,P)
 supercell.print_poscar("./super.vasp")

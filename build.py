@@ -238,10 +238,6 @@ class CELL(object):
     def __str__(self):
         return "cell\n"+self.cell.__str__() + "\natom positions:\n"+ self.atpos.__str__()
 
-    @staticmethod
-    def dist(a,b): # TODO: a and b are fractional coordinates
-         return np.linalg.norm(a-b)
-
     def unique(self):
         # Bucket sort-like
         n=self.nat
@@ -339,17 +335,40 @@ class CELL(object):
                     cij.append([i,j])
     
         #  choose from most small, most closest to 90 degree
-        most_close_to_rect=89.9
-        mi=-1
-        mj=-1
+        athr=0.01   # close thr for angle
+        most_close_to_rect=999 # the minimum diffence between 90 degree
         for ij in cij:
-                tmpang=fan(com_vec[ij[0]],com_vec[ij[1]])
-                if abs(tmpang-90)< most_close_to_rect-0.01: # close thr for angle
-                    most_close_to_rect=abs(tmpang-90)
-                    mi=ij[0]
-                    mj=ij[1]
-    
-        #TODO:  exist some randomness in choice mi,mj, can be safely disregarded
+            tmpang=fan(com_vec[ij[0]],com_vec[ij[1]])
+            if abs(tmpang-90)< most_close_to_rect-athr:
+                most_close_to_rect=abs(tmpang-90)
+   
+        if abs(most_close_to_rect-30)<athr: # 120 deg.
+            prim_angle=120.0
+        elif abs(most_close_to_rect)<athr:
+            prim_angle=90.0
+        else:
+            prim_angle=90-most_close_to_rect
+            
+        # which pairs are most small and close to rectangle angle
+        # reduce randomness in choice mi,mj
+        # keep the right-hand system
+        mij=[]
+        c_vec=self.direct2cart([0,0,1])
+        for ij in cij:
+            tmpang=fan(com_vec[ij[0]],com_vec[ij[1]])
+            if abs(tmpang-prim_angle)< athr and  mixproduct(com_vec[ij[0]],com_vec[ij[1]], c_vec)>CELL.close_thr:
+                mij.append([ij[0],ij[1]])
+                #print(len(mij), " com_vec_frac: ",com_vec_frac[ij[0]],com_vec_frac[ij[1]])
+        
+        mi,mj=-1,-1
+        maxsum=-99999
+        for ij in mij:
+            tmpsum=sum(com_vec[ij[0]])+sum(com_vec[ij[1]])
+            if tmpsum>maxsum:
+                maxsum=tmpsum
+                mi=ij[0]
+                mj=ij[1]
+
         #print("inplane vectors: ", "\nu:\n",com_vec_frac[mi], "\nv:\n", com_vec_frac[mj]) 
     
         P=np.mat(np.eye(3,dtype=np.float64))
@@ -362,15 +381,6 @@ class CELL(object):
         P[2,1]=com_vec_frac[mj][2]
         P[2,2]=1.0
     
-        # keep the right-hand system
-        c_vec=self.direct2cart([0,0,1])
-        if mixproduct(com_vec[mi],com_vec[mj], c_vec)<-CELL.close_thr:
-            P[0,0]=com_vec_frac[mj][0]
-            P[1,0]=com_vec_frac[mj][1]
-            P[2,0]=com_vec_frac[mj][2]
-            P[0,1]=com_vec_frac[mi][0]
-            P[1,1]=com_vec_frac[mi][1]
-            P[2,1]=com_vec_frac[mi][2]
     
         print("P2 = ",P)
         return P
