@@ -7,6 +7,8 @@ import numpy as np
 import copy
 import re
 
+BOHR2ANGS=0.52917720859
+
 def ext_euclid(a, b):
      # find root of ax+by=gcd(a,b) =q
      if b == 0:
@@ -15,6 +17,10 @@ def ext_euclid(a, b):
          x, y, q = ext_euclid(b, a % b) # q = gcd(a, b) = gcd(b, a%b)
          x, y = y, (x - (a // b) * y)
          return x, y, q
+
+def parse_lines_float(key, lines):
+    tmpstr=parse_lines(key, lines)
+    return np.float64(tmpstr)
 
 def parse_lines(key, lines):
     res=None
@@ -47,7 +53,7 @@ def mixproduct(a,b,c):
     return np.cross(a,b).dot(c)
 
 class CELL(object):
-    close_thr=1.0e-4
+    eps1=1.0e-4
     def __init__(self, fnam, fmt='POSCAR'):
         '''
         init from POSCAR, test only, use with caution
@@ -62,7 +68,7 @@ class CELL(object):
                 for j in range(3):
                     self.cell[i,j]=float(ll[2+i].split()[j])*self.alat
             
-            if mixproduct(self.cell[0],self.cell[1],self.cell[2])< -self.close_thr:
+            if mixproduct(self.cell[0],self.cell[1],self.cell[2])< -self.eps1:
                 print("imported POSCAR should be right-hand system.", file=sys.stderr)
                 raise RuntimeError
 
@@ -91,12 +97,12 @@ class CELL(object):
         elif fmt=='QE': # experimental
             fi=open(fnam)
             ll=fi.readlines()
-            ibrav=parse_lines('ibrav',ll)
-            self.nat=parse_lines('nat', ll)
-            self.ntyp=parse_lines("ntyp",ll)
+            ibrav_str=parse_lines('ibrav',ll)
+            nat_str=parse_lines('nat', ll)
+            ntyp_str=parse_lines("ntyp",ll)
 
             # assert ibrav not None
-            ibrav, self.nat, self.ntyp=int(ibrav), int(self.nat), int(self.ntyp)
+            ibrav, self.nat, self.ntyp=int(ibrav_str), int(nat_str), int(ntyp_str)
 
             self.cell=np.zeros([3,3], dtype=np.float64)
             if ibrav==0:
@@ -118,63 +124,62 @@ class CELL(object):
                 assert cpara
 
                 if is_alat:
-                    cd1=parse_lines("celldm\(1\)",ll)
-                    A=parse_lines("A",ll) 
-                    if cd1:
-                        cd1=np.float64(cd1)
-                        self.cell=self.cell*cd1*0.52917720859
-                        self.alat=cd1*0.52917720859
-                    elif A:
-                        A=np.float64(A)
+                    cd1_str=parse_lines("celldm\(1\)",ll)
+                    A_str=parse_lines("A",ll) 
+                    if cd1_str:
+                        cd1=np.float64(cd1_str)
+                        self.cell=self.cell*cd1*BOHR2ANGS
+                        self.alat=cd1*BOHR2ANGS
+                    elif A_str:
+                        A=np.float64(A_str)
                         self.cell=self.cell*A
                         self.alat=A
                     else:
                         raise Exception
                 elif is_bohr:
-                    self.cell=self.cell*0.52917720859
+                    self.cell=self.cell*BOHR2ANGS
                     self.alat=np.sqrt(dist2(self.cell[0]))
                 elif is_angstrom:
                     self.cell=self.cell
                     self.alat=np.sqrt(dist2(self.cell[0]))
                         
             elif ibrav==1: # sc
-                cd1=parse_lines("celldm\(1\)",ll)
-                cd1=np.float64(cd1)
-                self.cell=cd1*np.eye(3, dtype=np.float64)*0.52917720859
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                self.cell=cd1*np.eye(3, dtype=np.float64)*BOHR2ANGS
             elif ibrav==2: # fcc
-                cd1=parse_lines("celldm\(1\)",ll)
-                cd1=np.float64(cd1)
-                self.cell=cd1*0.5*np.array([[-1,0,1],[0,1,1],[-1,1,0]])*0.52917720859
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                self.cell=cd1*0.5*np.array([[-1,0,1],[0,1,1],[-1,1,0]])*BOHR2ANGS
             elif ibrav==3: # bcc
-                cd1=parse_lines("celldm\(1\)",ll)
-                cd1=np.float64(cd1)
-                self.cell=cd1*0.5*np.array([[1,1,1],[-1,1,1],[-1,-1,1]])*0.52917720859
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                self.cell=cd1*0.5*np.array([[1,1,1],[-1,1,1],[-1,-1,1]])*BOHR2ANGS
             elif ibrav==4: # hex
-                cd1=parse_lines("celldm\(1\)",ll)
-                cd1=np.float64(cd1)
-                cd3=parse_lines("celldm\(3\)",ll)
-                cd3=np.float64(cd3)
-                self.cell=cd1*np.array([[1,0,0],[-1.0/2,np.sqrt(3)/2,0],[0,0,cd3]])*0.52917720859
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                cd3=parse_lines_float("celldm\(3\)",ll)
+                self.cell=cd1*np.array([[1,0,0],[-1.0/2,np.sqrt(3)/2,0],[0,0,cd3]])*BOHR2ANGS
             elif ibrav==6: # tetra P
-                cd1=parse_lines("celldm\(1\)",ll)
-                cd1=np.float64(cd1)
-                cd3=parse_lines("celldm\(3\)",ll)
-                cd3=np.float64(cd3)
-                self.cell=cd1*np.array([[1,0,0],[0,1,0],[0,0,cd3]])*0.52917720859
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                cd3=parse_lines_float("celldm\(3\)",ll)
+                self.cell=cd1*np.array([[1,0,0],[0,1,0],[0,0,cd3]])*BOHR2ANGS
             elif ibrav==8: # orth P
-                cd1=parse_lines("celldm\(1\)",ll)
-                cd1=np.float64(cd1)
-                cd2=parse_lines("celldm\(2\)",ll)
-                cd2=np.float64(cd2)
-                cd3=parse_lines("celldm\(3\)",ll)
-                cd3=np.float64(cd3)
-                self.cell=cd1*np.array([[1,0,0],[0,cd2,0],[0,0,cd3]])*0.52917720859
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                cd2=parse_lines_float("celldm\(2\)",ll)
+                cd3=parse_lines_float("celldm\(3\)",ll)
+                self.cell=cd1*np.array([[1,0,0],[0,cd2,0],[0,0,cd3]])*BOHR2ANGS
+            elif ibrav==14: # Triclinic
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                cd2=parse_lines_float("celldm\(2\)",ll)
+                cd3=parse_lines_float("celldm\(3\)",ll)
+                cd4=parse_lines_float("celldm\(4\)",ll)
+                cd5=parse_lines_float("celldm\(5\)",ll)
+                cd6=parse_lines_float("celldm\(6\)",ll)
+                sin_gamma=np.sqrt(1.0-cd6*cd6)
+                self.cell=cd1*np.array([[1.0, 0.0, 0.0], [cd2*cd6,cd2*sin_gamma,0.0], [cd3*cd5, cd3*(cd4-cd5*cd6)/sin_gamma, cd3*sqrt(1.0+2.0*cd4*cd5*cd6-cd4*cd4-cd5*cd5-cd6*cd6)/sin_gamma]])*BOHR2ANGS
             else:
                 # other ibrav
                 raise NotImplementedError
 
             if ibrav!=0:
-                self.alat=cd1*0.52917720859
+                self.alat=cd1*BOHR2ANGS
          
             # parse atomic type names
             i=0
@@ -223,7 +228,7 @@ class CELL(object):
                             elif is_atpos_angstrom:
                                 self.atpos[j]=self.cart2direct(tmp_c)
                             elif is_atpos_bohr:
-                                self.atpos[j]=self.cart2direct(tmp_c*0.52917720859)
+                                self.atpos[j]=self.cart2direct(tmp_c*BOHR2ANGS)
                             else:
                                 assert None
 
@@ -248,11 +253,11 @@ class CELL(object):
         for i in range(n):
             for j in range(i+1,n):
                 dd=self.atpos[i]-self.atpos[j]
-                if abs(dd[0])>self.close_thr:
+                if abs(dd[0])>self.eps1:
                     continue
-                if abs(dd[1])>self.close_thr:
+                if abs(dd[1])>self.eps1:
                     continue
-                if abs(dd[2])>self.close_thr:
+                if abs(dd[2])>self.eps1:
                     continue
                 i_kind[j]=i_kind[i]
 
@@ -279,7 +284,8 @@ class CELL(object):
         self.atpos=self.atpos[tmp]
 
     def find_common_min(self, vecs, vecs_frac):
-        #vecs: cartesian coords of inplane vectors for each atoms
+        #vecs: list of cartesian coords of inplane vectors for each atoms
+        #vecs_frac: list of fractional coords of inplane vectors for each atoms
     
         nat=len(vecs)
     
@@ -295,7 +301,7 @@ class CELL(object):
                 if is_common0[k]==0:
                     continue
                 for j in range(nv[i]):
-                    if dist2(vecs[i][j], vecs[0][k])<CELL.close_thr:
+                    if dist2(vecs[i][j], vecs[0][k])<CELL.eps1:
                         break
                     elif j==nv[i]-1:
                         is_common0[k]=0
@@ -324,14 +330,14 @@ class CELL(object):
         minarea=99999999.0
         for i in range(N):
             for j in range(N):
-                if vol[i,j]<minarea-CELL.close_thr and vol[i,j]>CELL.close_thr:
+                if vol[i,j]<minarea-CELL.eps1 and vol[i,j]>CELL.eps1:
                     minarea=vol[i,j]
        
         # which pairs are minarea
         cij=[]
         for i in range(N):
             for j in range(N):
-                if abs(vol[i,j]-minarea)<CELL.close_thr:
+                if abs(vol[i,j]-minarea)<CELL.eps1:
                     cij.append([i,j])
     
         #  choose from most small, most closest to 90 degree
@@ -347,7 +353,7 @@ class CELL(object):
         elif abs(most_close_to_rect)<athr:
             prim_angle=90.0
         else:
-            prim_angle=90-most_close_to_rect
+            prim_angle=90.0-most_close_to_rect
             
         # which pairs are most small and close to rectangle angle
         # reduce randomness in choice mi,mj
@@ -356,7 +362,7 @@ class CELL(object):
         c_vec=self.direct2cart([0,0,1])
         for ij in cij:
             tmpang=fan(com_vec[ij[0]],com_vec[ij[1]])
-            if abs(tmpang-prim_angle)< athr and  mixproduct(com_vec[ij[0]],com_vec[ij[1]], c_vec)>CELL.close_thr:
+            if abs(tmpang-prim_angle)< athr and  mixproduct(com_vec[ij[0]],com_vec[ij[1]], c_vec)>CELL.eps1:
                 mij.append([ij[0],ij[1]])
                 #print(len(mij), " com_vec_frac: ",com_vec_frac[ij[0]],com_vec_frac[ij[1]])
         
@@ -381,7 +387,6 @@ class CELL(object):
         P[2,1]=com_vec_frac[mj][2]
         P[2,2]=1.0
     
-    
         print("P2 = ",P)
         return P
 
@@ -390,17 +395,33 @@ class CELL(object):
             for j in range(3):
                 tmp_f, tmp_i=np.modf(self.atpos[i][j]) # the fractional part , the interger part
                 # consider when tmp_i is small negative, e.g. -1e-17 , -1e-17+1=1
-                if tmp_f < 0.0- self.close_thr:
+                if tmp_f < 0.0- self.eps1:
                     self.atpos[i][j]=tmp_f+1.0
-                elif abs(tmp_f)<=self.close_thr or abs(tmp_f-1.0)<=self.close_thr:
+                elif abs(tmp_f)<=self.eps1 or abs(tmp_f-1.0)<=self.eps1:
                     self.atpos[i][j]=0.0
                 else:
                     self.atpos[i][j]=tmp_f
-                assert self.atpos[i][j]<1.0 and self.atpos[i][j]>=0.0- self.close_thr
+                assert self.atpos[i][j]<1.0 and self.atpos[i][j]>=0.0- self.eps1
 
         if do_sort:
             self.at_sort()
 
+    def print_pwinput(self, fnam, aug_sys=""):
+        minimal_sys="&SYSTEM\n  ibrav= 0, nat= %d, ntyp= %d,  %s\n/\n" % (self.nat, self.ntyp, aug_sys)
+
+        atomic_species="ATOMIC_SPECIES\n"
+        for i in range(self.ntyp):
+            atomic_species+=self.typ_name[i] + " 1.0 "+self.typ_name[i]+".UPF\n" # TODO:real atomic weights
+
+        cell_parameters="CELL_PARAMETERS (angstrom)\n"
+        for i in range(3):
+            cell_parameters+="%13.10f %13.10f %13.10f\n" % (self.cell[i,0],self.cell[i,1],self.cell[i,2])
+        atomic_positions="ATOMIC_POSITIONS (crystal)\n"
+        for i in range(self.nat):
+            atomic_positions+=" %3s %13.10f %13.10f %13.10f\n" % (self.typ_name[self.attyp[i]],self.atpos[i,0],self.atpos[i,1],self.atpos[i,2])
+
+        print(minimal_sys+atomic_species+cell_parameters+atomic_positions)
+        
     def print_poscar(self,fnam):
         '''
         print to POSCAR
@@ -464,13 +485,13 @@ class CELL(object):
     
     def get_vac(self):
         # assume cell is orthgonal, slab is at the center
-        assert abs(self.cell[2,0])<self.close_thr and abs(self.cell[2,1])<self.close_thr
+        assert abs(self.cell[2,0])<self.eps1 and abs(self.cell[2,1])<self.eps1
         zmax=np.max(self.atpos[:,2])
         zmin=np.min(self.atpos[:,2])
         return abs(self.cell[2,2])*(1.0-(zmax-zmin))
 
     def add_vacuum(self, vacuum): 
-        assert abs(self.cell[2,0])<self.close_thr and abs(self.cell[2,1])<self.close_thr
+        assert abs(self.cell[2,0])<self.eps1 and abs(self.cell[2,1])<self.eps1
         zmax=np.max(self.atpos[:,2])
         zmin=np.min(self.atpos[:,2])
 
@@ -514,7 +535,7 @@ class CELL(object):
     def unique_append(self, atpos, attyp):
         for i in range(self.nat):
             d=atpos-self.atpos[i]
-            if abs(d[0])+abs(d[1])+abs(d[2])<3*self.close_thr:
+            if abs(d[0])+abs(d[1])+abs(d[2])<3*self.eps1:
                 return
         attyp=np.array([attyp])
         atpos=atpos.reshape(1,3)
@@ -543,15 +564,15 @@ class CELL(object):
         for i in range(3):
             Acell[i]=Brepeat.cart2direct(A.cell[i])
     
-        corner_o=np.array([0.0 if np.fabs(La)<CELL.close_thr else -La/(Lb-La), 
-                           0.0 if np.fabs(Ma)<CELL.close_thr else -Ma/(Mb-Ma), 
-                           0.0 if np.fabs(Na)<CELL.close_thr else -Na/(Nb-Na)])
+        corner_o=np.array([0.0 if np.fabs(La)<CELL.eps1 else -La/(Lb-La), 
+                           0.0 if np.fabs(Ma)<CELL.eps1 else -Ma/(Mb-Ma), 
+                           0.0 if np.fabs(Na)<CELL.eps1 else -Na/(Nb-Na)])
         
         for i in range(8): # fraction coords of eight corners of A
             corner=corner_o.copy()
             for j in range(3):
                 corner+=(i>>j)%2*Acell[j]
-            if (corner>1.0+CELL.close_thr).any() or (corner<0.0-CELL.close_thr).any():
+            if (corner>1.0+CELL.eps1).any() or (corner<0.0-CELL.eps1).any():
                 return False
       
         #print(La,Ma,Na,Lb,Mb,Nb,"T",A.cell, Brepeat.cell, Acell)
@@ -680,14 +701,14 @@ class CELL(object):
         tmp=self.atpos[i]+by_s_tau
         for k in range(3):
             tf,ti=np.modf(tmp[k])
-            if tf < 0.0- self.close_thr:
+            if tf < 0.0- self.eps1:
                 tf=tf+1.0
-            elif np.fabs(tf)<=self.close_thr or np.fabs(tf-1.0)<=self.close_thr:
+            elif np.fabs(tf)<=self.eps1 or np.fabs(tf-1.0)<=self.eps1:
                 tf=0.0
             tmp[k]=tf
 
         for k in range(self.nat):
-            if dist2(self.atpos[k],tmp)<=self.close_thr and self.attyp[k]==self.attyp[i]:
+            if dist2(self.atpos[k],tmp)<=self.eps1 and self.attyp[k]==self.attyp[i]:
                 return True
 
         return False
@@ -706,7 +727,7 @@ class CELL(object):
         for k in range(self.nat):
             if k==i:
                 continue
-            if abs(d[k]-d[i])<self.close_thr and self.attyp[i]==self.attyp[k]:
+            if abs(d[k]-d[i])<self.eps1 and self.attyp[i]==self.attyp[k]:
                 tau=self.atpos[k]-self.atpos[i]
                 #print(i,k,tau)
                 is_inplane_and_trans=True
@@ -789,7 +810,7 @@ class CELL(object):
     
             k1=np.dot(p*(k*c1-h*c2)+q*(l*c1-h*c3), l*c2-k*c3)
             k2=np.dot(l*(k*c1-h*c2)-k*(l*c1-h*c3), l*c2-k*c3)
-            if np.fabs(k2) > self.close_thr:
+            if np.fabs(k2) > self.eps1:
                 i=-int(round(k1/k2))
                 p,q=p+i*l,q-i*k
             
@@ -823,3 +844,4 @@ class CELL(object):
 
 if __name__ == '__main__':
     pass
+

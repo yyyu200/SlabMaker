@@ -33,6 +33,7 @@ unitcell=CELL("SiC.vasp")
 miller_index=[1,1,1]
 slab=unitcell.makeslab(miller_index, layer=2, method="brute-force")
 slab.print_poscar(outpath+"slab.vasp")
+slab.print_pwinput(outpath+"pw.SiC111.inp")
 
 # build supercell
 unitcell=CELL("SiC.vasp")
