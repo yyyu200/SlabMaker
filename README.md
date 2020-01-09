@@ -146,6 +146,16 @@ python test.py
 * Numpy >= 1.15
 
 # An introduction of the principles behind.
+ 
+This code provide a single-python-file solution to build slab model for atomistic calculations of crystals.
+
+A summary to how the things get done.
+
+1. Find a cell from definition of miller index. This cell is not necessary the most small unit in-plane.
+
+2. Using a brutal-force method to find the most small unit in-plane. (1) For each atom in the cell, find in-plane atoms in the cell and the neighbor cells in certain range. Then we get a list of vectors in-plane. Fine the pairs of in-plane vectors with several different areas. (2) Do the step (1) for all the N atoms in the cell. So we get N groups of list of pairs of in-plane vectors, each group consists of several pairs of vectors, find common ones in these pairs, i.e. common in-plane translation invariant vector pairs. At least one common pair is found, or maybe more than one pair is found. (3) Find most small and with most close to 90 degrees angle( and other preferential conditions) in the common pairs of vectors.
+
+A more detailed demo (in Chinese):
 
 https://yyyu200.github.io/DFTbook/blogs/2019/04/07/TransCell/
 
