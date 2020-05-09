@@ -69,7 +69,7 @@ class CELL(object):
                     self.cell[i,j]=float(ll[2+i].split()[j])*self.alat
             
             if mixproduct(self.cell[0],self.cell[1],self.cell[2])< -self.eps1:
-                print("imported POSCAR should be right-hand system.", file=sys.stderr)
+                print("imported POSCAR should be right-hand system.")
                 raise RuntimeError
 
             self.ntyp=len(ll[5].split())
@@ -125,7 +125,7 @@ class CELL(object):
 
                 if is_alat:
                     cd1_str=parse_lines("celldm\(1\)",ll)
-                    A_str=parse_lines("A",ll) 
+                    #A_str=parse_lines("A",ll) 
                     if cd1_str:
                         cd1=np.float64(cd1_str)
                         self.cell=self.cell*cd1*BOHR2ANGS
@@ -156,6 +156,13 @@ class CELL(object):
                 cd1=parse_lines_float("celldm\(1\)",ll)
                 cd3=parse_lines_float("celldm\(3\)",ll)
                 self.cell=cd1*np.array([[1,0,0],[-1.0/2,np.sqrt(3)/2,0],[0,0,cd3]])*BOHR2ANGS
+            elif ibrav==5: # trigonal R
+                cd1=parse_lines_float("celldm\(1\)",ll)
+                cd4=parse_lines_float("celldm\(4\)",ll)
+                tx=np.sqrt((1-cd4)/2)
+                ty=np.sqrt((1-cd4)/6)
+                tz=np.sqrt((1+2*cd4)/3)
+                self.cell=cd1*np.array([[tx,-ty,tz],[0.0,2*ty,tz],[-tx,-ty,tz]])*BOHR2ANGS
             elif ibrav==6: # tetra P
                 cd1=parse_lines_float("celldm\(1\)",ll)
                 cd3=parse_lines_float("celldm\(3\)",ll)
@@ -176,6 +183,7 @@ class CELL(object):
                 self.cell=cd1*np.array([[1.0, 0.0, 0.0], [cd2*cd6,cd2*sin_gamma,0.0], [cd3*cd5, cd3*(cd4-cd5*cd6)/sin_gamma, cd3*sqrt(1.0+2.0*cd4*cd5*cd6-cd4*cd4-cd5*cd5-cd6*cd6)/sin_gamma]])*BOHR2ANGS
             else:
                 # other ibrav
+                print("ibrav = ",ibrav," not implemented.")
                 raise NotImplementedError
 
             if ibrav!=0:

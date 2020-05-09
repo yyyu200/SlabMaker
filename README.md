@@ -1,18 +1,14 @@
 # SlabMaker
 
-1. TransCell
+Functions:
 
-Transformation between primitive cell and unit cell.
+1. Transformation between primitive cell and unit cell.
 
-2. SlabMaker
+2. Build slab models for crystal surfaces.
 
-Build slab models for crystal surfaces.
+3. Build supercell given the transform matrix P.
 
-3. SuperCell
-
-Build supercell given the transform matrix P.
-
-4. PW input file convert to POSCAR format.
+4. Convert PW input file to POSCAR.
 
 ## Build primitive cell from unit cell
 
@@ -124,13 +120,17 @@ supercell.print_poscar("./super.vasp")
 
 ## Install
 
-To install as a python library instead of copy build to every work directory. Copy the SlabMaker folder to $HOME/local/lib or wherever you want, add to the PYTHONPATH by write to the ~/.bashrc:
+* Copy build.py to working directory.
+
+* Or more elegantly, you can install SlabMaker as a python library instead of copy build.py to every working directory. Copy the SlabMaker folder to $HOME/local/lib or wherever you want, add the directory to the $PYTHONPATH by writing to the file ~/.bashrc:
 
 ```bash
 export PYTHONPATH=$HOME/local/lib:$PYTHONPATH
 ```
 
-then it can be imported as:
+reopen the terminal, or ```source ~/.bashrc```
+
+then SlabMaker can be imported as:
 ```
 from SlabMaker.build import CELL
 ```
@@ -145,7 +145,17 @@ python test.py
 
 * Numpy >= 1.15
 
-# An introduction of the principles behind.
+# An introduction to the principles behind.
+ 
+This code provide a single-python-file solution to build slab model for atomistic calculations of crystals.
+
+A summary to how the things get done.
+
+1. Find a cell from the definition of miller index. This cell is not necessarily the in-plane primitive cell.
+
+2. Using a brute-force method to find the smallest unit in-plane. (1) For each atom in the cell, find in-plane atoms in the cell and the neighbor cells in certain range. Then we get a list of vectors in-plane. Find the pairs of in-plane vectors with several different areas. (2) Do the step (1) for all the N atoms in the cell. So we get N groups of list of pairs of in-plane vectors, each group consists of several pairs of vectors, find common ones in these pairs, i.e. common in-plane translation invariant vector pairs. At least one common pair is found, or maybe more than one pair is found. (3) Find the smallest and with angle closest to 90 degrees( and other preferential conditions) in the common pairs of vectors.
+
+A more detailed demo (in Chinese):
 
 https://yyyu200.github.io/DFTbook/blogs/2019/04/07/TransCell/
 
