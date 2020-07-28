@@ -10,17 +10,28 @@ import re
 BOHR2ANGS=0.52917720859
 
 def ext_euclid(a, b):
-     # find root of ax+by=gcd(a,b) =q
-     if b == 0:
-         return 1, 0, a
-     else:
-         x, y, q = ext_euclid(b, a % b) # q = gcd(a, b) = gcd(b, a%b)
-         x, y = y, (x - (a // b) * y)
-         return x, y, q
+    # find root of ax+by=gcd(a,b) =q
+    if b == 0:
+        return 1, 0, a
+    else:
+        x, y, q = ext_euclid(b, a % b) # q = gcd(a, b) = gcd(b, a%b)
+        x, y = y, (x - (a // b) * y)
+        return x, y, q
 
 def parse_lines_float(key, lines):
     tmpstr=parse_lines(key, lines)
     return np.float64(tmpstr)
+
+def parse_lines_system(filename,key):
+    import f90nml
+    nml = f90nml.read(filename)
+    if 'system' in nml:
+        if key in nml['system']:
+           return nml['system'][key]
+        else:
+           return None
+    else:
+        return None
 
 def parse_lines(key, lines):
     res=None
@@ -53,7 +64,7 @@ def mixproduct(a,b,c):
     return np.cross(a,b).dot(c)
 
 class CELL(object):
-    eps1=1.0e-4
+    eps1=1.0e-8
     def __init__(self, fnam, fmt='POSCAR'):
         '''
         init from POSCAR, test only, use with caution
@@ -97,12 +108,26 @@ class CELL(object):
         elif fmt=='QE': # experimental
             fi=open(fnam)
             ll=fi.readlines()
-            ibrav_str=parse_lines('ibrav',ll)
-            nat_str=parse_lines('nat', ll)
-            ntyp_str=parse_lines("ntyp",ll)
+            ibrav=parse_lines_system(fnam, 'ibrav')
+            self.nat=parse_lines_system(fnam, 'nat')
+            self.ntyp=parse_lines_system(fnam, "ntyp")
 
             # assert ibrav not None
-            ibrav, self.nat, self.ntyp=int(ibrav_str), int(nat_str), int(ntyp_str)
+            #ibrav, self.nat, self.ntyp=int(ibrav_str), int(nat_str), int(ntyp_str)
+
+            cd1=parse_lines_system(fnam, "celldm\(1\)")
+            A=parse_lines_system(fnam, "A")
+            if cd1:
+                is_celldm=True
+                is_ABC=False
+            if A:
+                is_ABC=True
+                is_celldm=False
+
+            if is_celldm and is_ABC:
+                raise Exception
+            elif not is_celldm and not is_ABC:
+                assert ibrav==0
 
             self.cell=np.zeros([3,3], dtype=np.float64)
             if ibrav==0:
@@ -124,18 +149,12 @@ class CELL(object):
                 assert cpara
 
                 if is_alat:
-                    cd1_str=parse_lines("celldm\(1\)",ll)
-                    #A_str=parse_lines("A",ll) 
-                    if cd1_str:
-                        cd1=np.float64(cd1_str)
+                    if is_celldm:
                         self.cell=self.cell*cd1*BOHR2ANGS
                         self.alat=cd1*BOHR2ANGS
-                    elif A_str:
-                        A=np.float64(A_str)
+                    else:
                         self.cell=self.cell*A
                         self.alat=A
-                    else:
-                        raise Exception
                 elif is_bohr:
                     self.cell=self.cell*BOHR2ANGS
                     self.alat=np.sqrt(dist2(self.cell[0]))
@@ -144,50 +163,149 @@ class CELL(object):
                     self.alat=np.sqrt(dist2(self.cell[0]))
                         
             elif ibrav==1: # sc
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                self.cell=cd1*np.eye(3, dtype=np.float64)*BOHR2ANGS
+                if is_celldm:
+                    self.cell=cd1*np.eye(3, dtype=np.float64)*BOHR2ANGS
+                elif is_ABC:
+                    self.cell=A*np.eye(3, dtype=np.float64)
             elif ibrav==2: # fcc
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                self.cell=cd1*0.5*np.array([[-1,0,1],[0,1,1],[-1,1,0]])*BOHR2ANGS
+                if is_celldm:
+                    self.cell=cd1*0.5*np.array([[-1,0,1],[0,1,1],[-1,1,0]])*BOHR2ANGS
+                elif is_ABC:
+                    self.cell=A*0.5*np.array([[-1,0,1],[0,1,1],[-1,1,0]])
+                else:
+                    assert None
             elif ibrav==3: # bcc
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                self.cell=cd1*0.5*np.array([[1,1,1],[-1,1,1],[-1,-1,1]])*BOHR2ANGS
+                if is_celldm:
+                    self.cell=cd1*0.5*np.array([[1,1,1],[-1,1,1],[-1,-1,1]])*BOHR2ANGS
+                elif is_ABC:
+                    self.cell=A*0.5*np.array([[-1,0,1],[0,1,1],[-1,1,0]])
+                else:
+                    assert None
             elif ibrav==4: # hex
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                cd3=parse_lines_float("celldm\(3\)",ll)
-                self.cell=cd1*np.array([[1,0,0],[-1.0/2,np.sqrt(3)/2,0],[0,0,cd3]])*BOHR2ANGS
+                if is_celldm:
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    self.cell=cd1*np.array([[1,0,0],[-1.0/2,np.sqrt(3)/2,0],[0,0,cd3]])*BOHR2ANGS
+                elif is_ABC:
+                    C=parse_lines_system(fnam, "C")
+                    self.cell=A*np.array([[1,0,0],[-1.0/2,np.sqrt(3)/2,0],[0,0,C/A]])
+                else:
+                    assert None
             elif ibrav==5: # trigonal R
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                cd4=parse_lines_float("celldm\(4\)",ll)
-                tx=np.sqrt((1-cd4)/2)
-                ty=np.sqrt((1-cd4)/6)
-                tz=np.sqrt((1+2*cd4)/3)
-                self.cell=cd1*np.array([[tx,-ty,tz],[0.0,2*ty,tz],[-tx,-ty,tz]])*BOHR2ANGS
+                if is_celldm:
+                    cd4=parse_lines_system(fnam, "celldm\(4\)")
+                    tx=np.sqrt((1-cd4)/2)
+                    ty=np.sqrt((1-cd4)/6)
+                    tz=np.sqrt((1+2*cd4)/3)
+                    self.cell=cd1*np.array([[tx,-ty,tz],[0.0,2*ty,tz],[-tx,-ty,tz]])*BOHR2ANGS
+                elif is_ABC:
+                    cosAB=parse_lines_system(fnam, "cosAB")
+                    tx=np.sqrt((1-cosAB)/2)
+                    ty=np.sqrt((1-cosAB)/6)
+                    tz=np.sqrt((1+2*cosAB)/3)
+                    self.cell=A*np.array([[tx,-ty,tz],[0.0,2*ty,tz],[-tx,-ty,tz]])
+                else:
+                    assert None
             elif ibrav==6: # tetra P
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                cd3=parse_lines_float("celldm\(3\)",ll)
-                self.cell=cd1*np.array([[1,0,0],[0,1,0],[0,0,cd3]])*BOHR2ANGS
+                if is_celldm:
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    self.cell=cd1*np.array([[1,0,0],[0,1,0],[0,0,cd3]])*BOHR2ANGS
+                else:
+                    C=parse_lines_system(fnam, "C")
+                    self.cell=A*np.array([[1,0,0],[0,1,0],[0,0,C/A]])
+            elif ibrav==7: # tetra I
+                if is_celldm:
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    self.cell=cd1*0.5*np.array([[1,-1,cd3],[1,1,cd3],[-1,-1,cd3]])*BOHR2ANGS
+                else:
+                    C=parse_lines_system(fnam, "C")
+                    self.cell=A*0.5*np.array([[1,-1,C/A],[1,1,C/A],[-1,-1,C/A]])
             elif ibrav==8: # orth P
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                cd2=parse_lines_float("celldm\(2\)",ll)
-                cd3=parse_lines_float("celldm\(3\)",ll)
-                self.cell=cd1*np.array([[1,0,0],[0,cd2,0],[0,0,cd3]])*BOHR2ANGS
+                if is_celldm:
+                    cd2=parse_lines_system(fnam, "celldm\(2\)")
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    self.cell=cd1*np.array([[1,0,0],[0,cd2,0],[0,0,cd3]])*BOHR2ANGS
+                else:
+                    B=parse_lines_system(fnam, "B")
+                    C=parse_lines_system(fnam, "C")
+                    self.cell=A*np.array([[1,0,0],[0,B/A,0],[0,0,C/A]])
+            elif ibrav==9: # orth Base
+                if is_celldm:
+                    cd2=parse_lines_system(fnam, "celldm\(2\)")
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    self.cell=cd1*np.array([[0.5,cd2*0.5,0],[-0.5,cd2*0.5,0],[0,0,cd3]])*BOHR2ANGS
+                else:
+                    B=parse_lines_system(fnam, "B")
+                    C=parse_lines_system(fnam, "C")
+                    self.cell=np.array([[A*0.5,B*0.5,0],[-A*0.5,B*0.5,0],[0,0,C]])
+            elif ibrav==10: # orth F
+                if is_celldm:
+                    cd2=parse_lines_system(fnam, "celldm\(2\)")
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    self.cell=cd1*np.array([[0.5,0,0.5*cd3],[0.5,0.5*cd2,0],[0,0.5*cd2,0.5*cd3]])*BOHR2ANGS
+                else:
+                    B=parse_lines_system(fnam, "B")
+                    C=parse_lines_system(fnam, "C")
+                    self.cell=np.array([[0.5*A,0,0.5*C],[A*0.5,B*0.5,0],[0,0.5*B,0.5*C]])
+            elif ibrav==11: # orth Body center
+                if is_celldm:
+                    cd2=parse_lines_system(fnam, "celldm\(2\)")
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    self.cell=cd1*np.array([[0.5,0,0.5*cd3],[0.5,0.5*cd2,0],[0,0.5*cd2,0.5*cd3]])*BOHR2ANGS
+                else:
+                    B=parse_lines_system(fnam, "B")
+                    C=parse_lines_system(fnam, "C")
+                    self.cell=np.array([[0.5*A,0,0.5*C],[A*0.5,B*0.5,0],[0,0.5*B,0.5*C]])
+            elif ibrav==12: # Monoclinic
+                if is_celldm:
+                    cd2=parse_lines_system(fnam, "celldm\(2\)")
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd4=parse_lines_system(fnam, "celldm\(4\)")
+                    self.cell=cd1*np.array([[1.0,0,0],[cd2*cd4,cd2*np.sqrt(1.0-cd4*cd4),0],[0,0,cd3]])*BOHR2ANGS
+                else:
+                    B=parse_lines_system(fnam, "B")
+                    C=parse_lines_system(fnam, "C")
+                    cosAB=parse_lines_system(fnam, "cosAB")
+                    self.cell=np.array([[A,0,0],[B*cosAB,B*np.sqrt(1.0-cosAB*cosAB),0],[0,0,C]])
+            elif ibrav==13: # Monoclinic Base center
+                if is_celldm:
+                    cd2=parse_lines_system(fnam, "celldm\(2\)")
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd4=parse_lines_system(fnam, "celldm\(4\)")
+                    self.cell=cd1*np.array([[0.5,0,-0.5*cd3],[cd2*cd4,cd2*np.sqrt(1.0-cd4*cd4),0],[0.5,0,0.5*cd3]])*BOHR2ANGS
+                else:
+                    B=parse_lines_system(fnam, "B")
+                    C=parse_lines_system(fnam, "C")
+                    cosAB=parse_lines_system(fnam, "cosAB")
+                    self.cell=np.array([[0.5*A,0,-0.5*C],[B*cosAB,B*np.sqrt(1.0-cosAB*cosAB),0],[0.5*A,0,0.5*C]])
             elif ibrav==14: # Triclinic
-                cd1=parse_lines_float("celldm\(1\)",ll)
-                cd2=parse_lines_float("celldm\(2\)",ll)
-                cd3=parse_lines_float("celldm\(3\)",ll)
-                cd4=parse_lines_float("celldm\(4\)",ll)
-                cd5=parse_lines_float("celldm\(5\)",ll)
-                cd6=parse_lines_float("celldm\(6\)",ll)
-                sin_gamma=np.sqrt(1.0-cd6*cd6)
-                self.cell=cd1*np.array([[1.0, 0.0, 0.0], [cd2*cd6,cd2*sin_gamma,0.0], [cd3*cd5, cd3*(cd4-cd5*cd6)/sin_gamma, cd3*sqrt(1.0+2.0*cd4*cd5*cd6-cd4*cd4-cd5*cd5-cd6*cd6)/sin_gamma]])*BOHR2ANGS
+                if is_celldm:
+                    cd2=parse_lines_system(fnam, "celldm\(2\)")
+                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd4=parse_lines_system(fnam, "celldm\(4\)")
+                    cd5=parse_lines_system(fnam, "celldm\(5\)")
+                    cd6=parse_lines_system(fnam, "celldm\(6\)")
+                    sin_gamma=np.sqrt(1.0-cd6*cd6)
+                    self.cell=cd1*np.array([[1.0, 0.0, 0.0], [cd2*cd6,cd2*sin_gamma,0.0], [cd3*cd5, cd3*(cd4-cd5*cd6)/sin_gamma, cd3*sqrt(1.0+2.0*cd4*cd5*cd6-cd4*cd4-cd5*cd5-cd6*cd6)/sin_gamma]])*BOHR2ANGS
+                else:
+                    B=parse_lines_system(fnam, "B")
+                    C=parse_lines_system(fnam, "C")
+                    cosAB=parse_lines_system(fnam, "cosAB")
+                    cosAC=parse_lines_system(fnam, "cosAC")
+                    cosBC=parse_lines_system(fnam, "cosBC")
+                    sin_gamma=np.sqrt(1.0-cosBC*cosBC)
+                    self.cell=A*np.array([[1.0, 0.0, 0.0], [B/A*cosBC,B/A*sin_gamma,0.0], [C/A*cosAC, C/A*(cosAB-cosAC*cosBC)/sin_gamma, C/A*sqrt(1.0+2.0*cosAB*cosAC*cosBC-cosAB*cosAB-cosAC*cosAC-cosBC*cosBC)/sin_gamma]])
             else:
                 # other ibrav
                 print("ibrav = ",ibrav," not implemented.")
                 raise NotImplementedError
 
             if ibrav!=0:
-                self.alat=cd1*BOHR2ANGS
+                if is_celldm:
+                    self.alat=cd1*BOHR2ANGS
+                elif is_ABC:
+                    self.alat=A
+                else:
+                    assert None
          
             # parse atomic type names
             i=0
@@ -243,6 +361,19 @@ class CELL(object):
                     break
                 else:
                     continue
+            if np.dot(np.cross(self.cell[0], self.cell[1]),self.cell[2])<0:
+                P=np.mat(np.eye(3, dtype=np.float64))
+                P[0]=(0,1,0)
+                P[1]=(1,0,0)
+                P[2]=(0,0,1)
+                self.cell=((np.mat(self.cell).T)*P).T
+                self.cell=np.array(self.cell) # mat to array
+
+                assert np.linalg.det(self.cell)>0
+
+                Q=np.linalg.inv(P)
+                for i in range(self.nat):
+                    self.atpos[i]=np.array(Q*(np.mat(self.atpos[i]).T)).flatten()
 
         else:
             # other code? maybe Abinit, castep
@@ -395,7 +526,7 @@ class CELL(object):
         P[2,1]=com_vec_frac[mj][2]
         P[2,2]=1.0
     
-        print("P2 = ",P)
+        #print("P2 = ",P)
         return P
 
     def tidy_up(self, do_sort=True): # tanslate to [0-1), sort by element
@@ -428,8 +559,11 @@ class CELL(object):
         for i in range(self.nat):
             atomic_positions+=" %3s %13.10f %13.10f %13.10f\n" % (self.typ_name[self.attyp[i]],self.atpos[i,0],self.atpos[i,1],self.atpos[i,2])
 
-        print(minimal_sys+atomic_species+cell_parameters+atomic_positions)
-        
+        fout=open(fnam, 'w')
+        fout.write(minimal_sys+atomic_species+cell_parameters+atomic_positions)
+        #print(minimal_sys+atomic_species+cell_parameters+atomic_positions)
+        fout.close()
+
     def print_poscar(self,fnam):
         '''
         print to POSCAR
@@ -448,6 +582,7 @@ class CELL(object):
             fo.write(str(self.typ_num[i])+" ")
         fo.write("\n")
         fo.write("Direct\n")
+        self.at_sort()
         for i in range(self.nat):
             for j in range(3):
                 #dig=np.modf(self.atpos[i][j])[0]
@@ -670,7 +805,7 @@ class CELL(object):
         primcell.cell=(np.mat(unitcell.cell).T*P).T
         primcell.cell=np.array(primcell.cell)
         primcell.cell=np.array(primcell.cell)
-        assert np.linalg.det(primcell.cell)>=0
+        assert np.linalg.det(primcell.cell)>0
         primcell.nat=unitcell.nat
         for i in range(primcell.nat):
             primcell.atpos[i]=np.array(Q*(np.mat(unitcell.atpos[i]).T)).flatten()
@@ -808,10 +943,14 @@ class CELL(object):
             raise AssertionError
         elif h==0 and k==0:
             P[2,2]=layer
-        elif k==0 and l==0: # slab not along z
-            P[0,0]=layer
-        elif h==0 and l==0:
-            P[1,1]=layer
+        elif k==0 and l==0: # slab not along z , (c,a,b)->(a,b,c)
+            P[0]=(0,0,layer)
+            P[1]=(1,0,0)
+            P[2]=(0,1,0)
+        elif h==0 and l==0:# (b,c,a) -> (a,b,c)
+            P[0]=(0,1,0)
+            P[1]=(0,0,layer)
+            P[2]=(1,0,0)
         else:
             p,q, _ =ext_euclid(k,l)
             c1,c2,c3=self.cell
@@ -832,21 +971,21 @@ class CELL(object):
             P[0,2]*=-1
             P[1,2]*=-1
             P[2,2]*=-1
-        print("P1 = ", P)
+        #print("P1 = ", P)
 
         slab=CELL.cell2supercell(self,P)
         slab.cell_redefine()
         slab.add_vacuum(vacuum)
 
         reduced_slab=CELL.reduce_slab(slab)
-        print("reduced slab cell \n", reduced_slab.cell)
+        #print("reduced slab cell \n", reduced_slab.cell)
         ang_B=fan(reduced_slab.cell[0],reduced_slab.cell[1])
         edg_a=np.linalg.norm(reduced_slab.cell[0])
         edg_c=np.linalg.norm(reduced_slab.cell[1])
-        print("reduced slab No. of atoms: ", reduced_slab.nat)
-        print("slab and vacuum length: ", abs(reduced_slab.cell[2,2])-reduced_slab.get_vac(), reduced_slab.get_vac(), "Ang.")
-        print("inplane edge and angle: ", edg_a, edg_c," Ang. ", ang_B," degree.")
-        print("reduced slab cell area: ", np.sin(ang_B/180*np.pi)*edg_a*edg_c, " Ang^2.")
+        #print("reduced slab No. of atoms: ", reduced_slab.nat)
+        #print("slab and vacuum length: ", abs(reduced_slab.cell[2,2])-reduced_slab.get_vac(), reduced_slab.get_vac(), "Ang.")
+        #print("inplane edge and angle: ", edg_a, edg_c," Ang. ", ang_B," degree.")
+        #print("reduced slab cell area: ", np.sin(ang_B/180*np.pi)*edg_a*edg_c, " Ang^2.")
 
         return reduced_slab
 
