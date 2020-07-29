@@ -42,7 +42,7 @@ def get_atomic_weight(at):
         'Md': 258.0, 'No': 259.0, 'Lr': 262.0, 'Rf': 261.0, 'Db': 262.0, 
         'Sg': 266.0, 'Bh': 264.0, 'Hs': 277.0, 'Mt': 268.0}
     if at in sym_wt:
-    	return str(sym_wt[at])
+        return str(sym_wt[at])
     else:
         return "1.0"
 
