@@ -117,6 +117,8 @@ class CELL(object):
 
             cd1=parse_lines_system(fnam, "celldm\(1\)")
             A=parse_lines_system(fnam, "A")
+            is_celldm=False
+            is_ABC=False
             if cd1:
                 is_celldm=True
                 is_ABC=False
