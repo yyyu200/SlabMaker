@@ -108,6 +108,7 @@ class CELL(object):
         elif fmt=='QE': # experimental
             fi=open(fnam)
             ll=fi.readlines()
+            fi.close()
             ibrav=parse_lines_system(fnam, 'ibrav')
             self.nat=parse_lines_system(fnam, 'nat')
             self.ntyp=parse_lines_system(fnam, "ntyp")
@@ -115,16 +116,17 @@ class CELL(object):
             # assert ibrav not None
             #ibrav, self.nat, self.ntyp=int(ibrav_str), int(nat_str), int(ntyp_str)
 
-            cd1=parse_lines_system(fnam, "celldm\(1\)")
+            cdm=parse_lines_system(fnam, "celldm")
             A=parse_lines_system(fnam, "A")
             is_celldm=False
             is_ABC=False
-            if cd1:
+            if cdm:
                 is_celldm=True
                 is_ABC=False
+                cd1=cdm[0]
             if A:
-                is_ABC=True
                 is_celldm=False
+                is_ABC=True
 
             if is_celldm and is_ABC:
                 raise Exception
@@ -185,7 +187,7 @@ class CELL(object):
                     assert None
             elif ibrav==4: # hex
                 if is_celldm:
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd3=cdm[2]
                     self.cell=cd1*np.array([[1,0,0],[-1.0/2,np.sqrt(3)/2,0],[0,0,cd3]])*BOHR2ANGS
                 elif is_ABC:
                     C=parse_lines_system(fnam, "C")
@@ -194,7 +196,7 @@ class CELL(object):
                     assert None
             elif ibrav==5: # trigonal R
                 if is_celldm:
-                    cd4=parse_lines_system(fnam, "celldm\(4\)")
+                    cd4=cdm[3]
                     tx=np.sqrt((1-cd4)/2)
                     ty=np.sqrt((1-cd4)/6)
                     tz=np.sqrt((1+2*cd4)/3)
@@ -209,22 +211,22 @@ class CELL(object):
                     assert None
             elif ibrav==6: # tetra P
                 if is_celldm:
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd3=cdm[2]
                     self.cell=cd1*np.array([[1,0,0],[0,1,0],[0,0,cd3]])*BOHR2ANGS
                 else:
                     C=parse_lines_system(fnam, "C")
                     self.cell=A*np.array([[1,0,0],[0,1,0],[0,0,C/A]])
             elif ibrav==7: # tetra I
                 if is_celldm:
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd3=cdm[2]
                     self.cell=cd1*0.5*np.array([[1,-1,cd3],[1,1,cd3],[-1,-1,cd3]])*BOHR2ANGS
                 else:
                     C=parse_lines_system(fnam, "C")
                     self.cell=A*0.5*np.array([[1,-1,C/A],[1,1,C/A],[-1,-1,C/A]])
             elif ibrav==8: # orth P
                 if is_celldm:
-                    cd2=parse_lines_system(fnam, "celldm\(2\)")
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd2=cdm[1]
+                    cd3=cdm[2]
                     self.cell=cd1*np.array([[1,0,0],[0,cd2,0],[0,0,cd3]])*BOHR2ANGS
                 else:
                     B=parse_lines_system(fnam, "B")
@@ -232,8 +234,8 @@ class CELL(object):
                     self.cell=A*np.array([[1,0,0],[0,B/A,0],[0,0,C/A]])
             elif ibrav==9: # orth Base
                 if is_celldm:
-                    cd2=parse_lines_system(fnam, "celldm\(2\)")
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd2=cdm[1]
+                    cd3=cdm[2]
                     self.cell=cd1*np.array([[0.5,cd2*0.5,0],[-0.5,cd2*0.5,0],[0,0,cd3]])*BOHR2ANGS
                 else:
                     B=parse_lines_system(fnam, "B")
@@ -241,8 +243,8 @@ class CELL(object):
                     self.cell=np.array([[A*0.5,B*0.5,0],[-A*0.5,B*0.5,0],[0,0,C]])
             elif ibrav==10: # orth F
                 if is_celldm:
-                    cd2=parse_lines_system(fnam, "celldm\(2\)")
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd2=cdm[1]
+                    cd3=cdm[2]
                     self.cell=cd1*np.array([[0.5,0,0.5*cd3],[0.5,0.5*cd2,0],[0,0.5*cd2,0.5*cd3]])*BOHR2ANGS
                 else:
                     B=parse_lines_system(fnam, "B")
@@ -250,8 +252,8 @@ class CELL(object):
                     self.cell=np.array([[0.5*A,0,0.5*C],[A*0.5,B*0.5,0],[0,0.5*B,0.5*C]])
             elif ibrav==11: # orth Body center
                 if is_celldm:
-                    cd2=parse_lines_system(fnam, "celldm\(2\)")
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
+                    cd2=cdm[1]
+                    cd3=cdm[2]
                     self.cell=cd1*np.array([[0.5,0,0.5*cd3],[0.5,0.5*cd2,0],[0,0.5*cd2,0.5*cd3]])*BOHR2ANGS
                 else:
                     B=parse_lines_system(fnam, "B")
@@ -259,9 +261,9 @@ class CELL(object):
                     self.cell=np.array([[0.5*A,0,0.5*C],[A*0.5,B*0.5,0],[0,0.5*B,0.5*C]])
             elif ibrav==12: # Monoclinic
                 if is_celldm:
-                    cd2=parse_lines_system(fnam, "celldm\(2\)")
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
-                    cd4=parse_lines_system(fnam, "celldm\(4\)")
+                    cd2=cdm[1]
+                    cd3=cdm[2]
+                    cd4=cdm[3]
                     self.cell=cd1*np.array([[1.0,0,0],[cd2*cd4,cd2*np.sqrt(1.0-cd4*cd4),0],[0,0,cd3]])*BOHR2ANGS
                 else:
                     B=parse_lines_system(fnam, "B")
@@ -270,9 +272,9 @@ class CELL(object):
                     self.cell=np.array([[A,0,0],[B*cosAB,B*np.sqrt(1.0-cosAB*cosAB),0],[0,0,C]])
             elif ibrav==13: # Monoclinic Base center
                 if is_celldm:
-                    cd2=parse_lines_system(fnam, "celldm\(2\)")
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
-                    cd4=parse_lines_system(fnam, "celldm\(4\)")
+                    cd2=cdm[1]
+                    cd3=cdm[2]
+                    cd4=cdm[3]
                     self.cell=cd1*np.array([[0.5,0,-0.5*cd3],[cd2*cd4,cd2*np.sqrt(1.0-cd4*cd4),0],[0.5,0,0.5*cd3]])*BOHR2ANGS
                 else:
                     B=parse_lines_system(fnam, "B")
@@ -281,11 +283,11 @@ class CELL(object):
                     self.cell=np.array([[0.5*A,0,-0.5*C],[B*cosAB,B*np.sqrt(1.0-cosAB*cosAB),0],[0.5*A,0,0.5*C]])
             elif ibrav==14: # Triclinic
                 if is_celldm:
-                    cd2=parse_lines_system(fnam, "celldm\(2\)")
-                    cd3=parse_lines_system(fnam, "celldm\(3\)")
-                    cd4=parse_lines_system(fnam, "celldm\(4\)")
-                    cd5=parse_lines_system(fnam, "celldm\(5\)")
-                    cd6=parse_lines_system(fnam, "celldm\(6\)")
+                    cd2=cdm[1]
+                    cd3=cdm[2]
+                    cd4=cdm[3]
+                    cd5=cdm[4]
+                    cd6=cdm[5]
                     sin_gamma=np.sqrt(1.0-cd6*cd6)
                     self.cell=cd1*np.array([[1.0, 0.0, 0.0], [cd2*cd6,cd2*sin_gamma,0.0], [cd3*cd5, cd3*(cd4-cd5*cd6)/sin_gamma, cd3*sqrt(1.0+2.0*cd4*cd5*cd6-cd4*cd4-cd5*cd5-cd6*cd6)/sin_gamma]])*BOHR2ANGS
                 else:
