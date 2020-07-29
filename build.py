@@ -18,6 +18,34 @@ def ext_euclid(a, b):
         x, y = y, (x - (a // b) * y)
         return x, y, q
 
+def get_atomic_weight(at):
+    sym_wt={'H': 1.00794, 'He': 4.00260, 'Li': 6.941, 'Be': 9.01218, 'B': 10.811, 
+        'C': 12.0107, 'N': 14.00674, 'O': 15.9994, 'F': 18.99840, 'Ne': 20.1797, 
+        'Na': 22.98977, 'Mg': 24.3050, 'Al': 26.98154, 'Si': 28.0855, 'P': 30.97376, 
+        'S': 32.066, 'Cl': 35.4527, 'Ar': 39.948, 'K': 39.0983, 'Ca': 40.078, 
+        'Sc': 44.95591, 'Ti': 47.867, 'V': 50.9415, 'Cr': 51.9961, 'Mn': 54.93805, 
+        'Fe': 55.845, 'Co': 58.93320, 'Ni': 58.6934, 'Cu': 63.546, 'Zn': 65.39, 
+        'Ga': 69.723, 'Ge': 72.61, 'As': 74.92160, 'Se': 78.96, 'Br': 79.904, 
+        'Kr': 83.80, 'Rb': 85.4678, 'Sr': 87.62, 'Y': 88.90585, 'Zr': 91.224, 
+        'Nb': 92.90638, 'Mo': 95.94, 'Tc': 98.0, 'Ru': 101.07, 'Rh': 102.90550, 
+        'Pd': 106.42, 'Ag': 107.8682, 'Cd': 112.411, 'In': 114.818, 'Sn': 118.710, 
+        'Sb': 121.760, 'Te': 127.60, 'I': 126.90447, 'Xe': 131.29, 'Cs': 132.90545, 
+        'Ba': 137.327, 'La': 138.9055, 'Ce': 140.116, 'Pr': 140.90765, 'Nd': 144.24, 
+        'Pm': 145.0, 'Sm': 150.36, 'Eu': 151.964, 'Gd': 157.25, 'Tb': 158.92534, 
+        'Dy': 162.50, 'Ho': 164.93032, 'Er': 167.26, 'Tm': 168.93421, 'Yb': 173.04, 
+        'Lu': 174.967, 'Hf': 178.49, 'Ta': 180.9479, 'W': 183.84, 'Re': 186.207, 
+        'Os': 190.23, 'Ir': 192.217, 'Pt': 195.078, 'Au': 196.96655, 'Hg': 200.59, 
+        'Tl': 204.3833, 'Pb': 207.2, 'Bi': 208.98038, 'Po': 209.0, 'At': 210.0, 
+        'Rn': 222.0, 'Fr': 223.0, 'Ra': 226.0, 'Ac': 227.0, 'Th': 232.0381, 
+        'Pa': 231.03588, 'U': 238.0289, 'Np': 237.0, 'Pu': 244.0, 'Am': 243.0, 
+        'Cm': 247.0, 'Bk': 247.0, 'Cf': 251.0, 'Es': 252.0, 'Fm': 257.0, 
+        'Md': 258.0, 'No': 259.0, 'Lr': 262.0, 'Rf': 261.0, 'Db': 262.0, 
+        'Sg': 266.0, 'Bh': 264.0, 'Hs': 277.0, 'Mt': 268.0}
+    if at in sym_wt:
+    	return str(sym_wt[at])
+    else:
+        return "1.0"
+
 def parse_lines_float(key, lines):
     tmpstr=parse_lines(key, lines)
     return np.float64(tmpstr)
@@ -549,22 +577,45 @@ class CELL(object):
         if do_sort:
             self.at_sort()
 
-    def print_pwinput(self, fnam, aug_sys=""):
-        minimal_sys="&SYSTEM\n  ibrav= 0, nat= %d, ntyp= %d,  %s\n/\n" % (self.nat, self.ntyp, aug_sys)
+    def print_pwinput(self, fnam, aug_sys="",separation=0.04):
+        control_nml="""&CONTROL
+  calculation='scf', pseudo_dir='./', outdir='./tmp', verbosity='high'
+  tprnfor=.true., tstress=.true., forc_conv_thr=1.0d-4, nstep=100,
+/
+"""
+        minimal_sys="&SYSTEM\n  ibrav= 0, nat= %d, ntyp= %d,  %s\n  occupations = 'smearing', smearing = 'gauss', degauss = 1.0d-2,\n  ecutwfc = 50, ecutrho = 500,\n/\n" % (self.nat, self.ntyp, aug_sys)
 
+        minimal_sys+="""&ELECTRONS
+  conv_thr = 1.0d-8
+  mixing_beta = 0.7d0
+/
+&IONS
+/
+&CELL
+/
+"""
         atomic_species="ATOMIC_SPECIES\n"
         for i in range(self.ntyp):
-            atomic_species+=self.typ_name[i] + " 1.0 "+self.typ_name[i]+".UPF\n" # TODO:real atomic weights
+            atomic_species+="  "+self.typ_name[i] +" "+ get_atomic_weight(self.typ_name[i]) +" "+self.typ_name[i]+".UPF\n" # TODO:real atomic weights
 
         cell_parameters="CELL_PARAMETERS (angstrom)\n"
         for i in range(3):
-            cell_parameters+="%13.10f %13.10f %13.10f\n" % (self.cell[i,0],self.cell[i,1],self.cell[i,2])
+            cell_parameters+="  %13.10f %13.10f %13.10f\n" % (self.cell[i,0],self.cell[i,1],self.cell[i,2])
         atomic_positions="ATOMIC_POSITIONS (crystal)\n"
+
+        a=np.sqrt(dist2(self.cell[0]))
+        b=np.sqrt(dist2(self.cell[1]))
+        c=np.sqrt(dist2(self.cell[2]))
+        KP_x = max(1,int(1./(a*separation)+0.5))
+        KP_y = max(1,int(1./(b*separation)+0.5))
+        KP_z = max(1,int(1./(c*separation)+0.5))
+        kpoints="K_POINTS {automatic}\n  %d %d %d 0 0 0\n"% (KP_x, KP_y, KP_z)
+
         for i in range(self.nat):
             atomic_positions+=" %3s %13.10f %13.10f %13.10f\n" % (self.typ_name[self.attyp[i]],self.atpos[i,0],self.atpos[i,1],self.atpos[i,2])
 
         fout=open(fnam, 'w')
-        fout.write(minimal_sys+atomic_species+cell_parameters+atomic_positions)
+        fout.write(control_nml+minimal_sys+atomic_species+cell_parameters+atomic_positions+kpoints)
         #print(minimal_sys+atomic_species+cell_parameters+atomic_positions)
         fout.close()
 
